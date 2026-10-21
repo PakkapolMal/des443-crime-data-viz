@@ -1,12 +1,30 @@
-# LAPD Crime Dashboard — Data Pipeline
+# LAPD Crime Dashboard
 
-A local Python pipeline that turns the LAPD **NIBRS** crime tables (Apr 2024 – Sep 2026) into small, pre-aggregated JSON files. A D3.js dashboard loads them with `d3.json()`, so the browser never sees the raw ~950k rows.
+A local Python pipeline turns the LAPD **NIBRS** crime tables (Apr 2024 – Sep 2026) into small, pre-aggregated JSON files. A scrolling D3.js story page on GitHub Pages loads them with `d3.json()`, so the browser never sees the raw ~950k rows. The remaining build work is tracked in [TASK.md](TASK.md).
 
 > The older 2020 – Feb 2024 pipeline is archived (see [Legacy pipeline](#legacy-pipeline)). NIBRS counts each offense separately, so the two datasets are **never** compared in one chart.
+
+## Stack
+
+| Layer | Choice | Why |
+|---|---|---|
+| Data prep | Python 3.11, pandas, numpy | Vectorized aggregation of about 1M rows on a laptop |
+| Charts | **D3.js v7** from a CDN, as ES modules | One D3 version. No jQuery and no framework. |
+| Page flow | **CSS scroll snap** (`scroll-snap-type: y mandatory`) on 100vh `<section>` screens | Scroll up and down to change screens, with no buttons and no fullPage.js |
+| Routing | **Plain hash anchors**, one per chapter (`#home`, `#trends`, …) | Works natively on GitHub Pages. An IntersectionObserver keeps the hash in sync while scrolling. |
+| State | DOM- and JS-local to each chapter | No query strings and no cross-page state |
+| Hosting | **GitHub Pages**, served from the repo root on `master` | Static files only, with relative data paths |
+
+The dashboard reads it as one page with 9 chapters: `#home` → `#trends` → `#places` → `#compare` → `#offenses` → `#weapons` → `#victims` → `#outcomes` → `#about`. Each chapter is one to three snapping screens. [TASK.md](TASK.md) lists every screen.
 
 ## Project structure
 
 ```
+index.html                     # dashboard: every chapter as <section id="...">  (to build)
+web/                           # (to build)
+  css/style.css                #   scroll snap, layout, color tokens
+  js/main.js                   #   data loading, hash sync, render-on-view
+  js/charts/<chapter>.js       #   one module per chapter, owns its filters
 data/
   raw/                         # inputs, read-only, gitignored
     nibrs_offenses.csv         #   one row per offense   (~499k)
@@ -24,8 +42,11 @@ src/
   validate_nibrs.py            # NIBRS checks (exit 1 on failure)
   transform.py                 # legacy pipeline
 CLAUDE.md                      # working rules for the pipelines
+TASK.md                        # dashboard build checklist
 requirements.txt
 ```
+
+Only `data/processed/` is published. `data/raw/` is gitignored and never reaches GitHub Pages.
 
 ## Running
 
@@ -36,6 +57,14 @@ python src/validate_nibrs.py       # re-derives totals from raw data and checks 
 ```
 
 `transform_nibrs.py` accepts `--offenses`, `--victims` and `--output`. All of them default to the paths above.
+
+To preview the dashboard locally, serve the repo root over HTTP. `d3.json` can't read files opened as `file://`.
+
+```bash
+python -m http.server 8000
+```
+
+Then open http://localhost:8000/#home.
 
 ## How the NIBRS data is shaped
 
