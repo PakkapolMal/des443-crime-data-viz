@@ -1,0 +1,14 @@
+/* Foundation only: the mechanics the page needs to work. Visual styling comes later. */
+html { scroll-snap-type: y mandatory; }
+body { margin: 0; }
+
+.screen {
+  box-sizing: border-box;
+  height: 100vh;
+  height: 100svh;            /* mobile: excludes browser chrome where supported */
+  scroll-snap-align: start;
+  overflow: auto;            /* phones: stacked charts scroll inside the screen */
+}
+
+#chapter-indicator { position: fixed; top: 0; right: 0; pointer-events: none; }
+.tooltip { position: fixed; pointer-events: none; }

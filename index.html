@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LA Crime under NIBRS</title>
+  <link rel="stylesheet" href="web/css/style.css">
+  <script type="module" src="web/js/main.js"></script>
+</head>
+<body>
+  <!-- One <section> per chapter (its id is the URL hash). Each .screen is one 100vh snap stop;
+       main.js calls charts/<chapter>.js -> export named after data-screen, the first time it scrolls into view. -->
+  <div id="chapter-indicator" aria-live="polite"></div>
+
+  <section id="home" data-title="Overview">
+    <div class="screen" data-screen="title">
+      <h1>LA Crime under NIBRS, Apr 2024 – Sep 2026</h1>
+      <p>Scroll ↓</p>
+    </div>
+    <div class="screen" data-screen="kpi"></div>
+  </section>
+
+  <section id="trends" data-title="When">
+    <div class="screen" data-screen="monthly"></div>
+    <div class="screen" data-screen="weekly"></div>
+  </section>
+
+  <section id="places" data-title="Where">
+    <div class="screen" data-screen="map"></div>
+    <div class="screen" data-screen="areas"></div>
+    <div class="screen" data-screen="locations"></div>
+  </section>
+
+  <section id="compare" data-title="Area profiles">
+    <div class="screen" data-screen="scatter"></div>
+  </section>
+
+  <section id="offenses" data-title="What">
+    <div class="screen" data-screen="hierarchy"></div>
+    <div class="screen" data-screen="cooccurrence"></div>
+  </section>
+
+  <section id="weapons" data-title="How dangerous">
+    <div class="screen" data-screen="weapons"></div>
+  </section>
+
+  <section id="victims" data-title="Who">
+    <div class="screen" data-screen="pyramid"></div>
+    <div class="screen" data-screen="descent"></div>
+  </section>
+
+  <section id="outcomes" data-title="What happens next">
+    <div class="screen" data-screen="funnel"></div>
+    <div class="screen" data-screen="lag"></div>
+  </section>
+
+  <section id="about" data-title="About the data">
+    <div class="screen" data-screen="about"></div>
+  </section>
+
+  <div id="tooltip" class="tooltip" hidden></div>
+</body>
+</html>
