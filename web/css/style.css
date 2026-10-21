@@ -1,14 +1,123 @@
-/* Foundation only: the mechanics the page needs to work. Visual styling comes later. */
-html { scroll-snap-type: y mandatory; }
-body { margin: 0; }
+@import url("tokens.css");
+/* Rules for every value: DESIGN.md. Use tokens only, no raw hex. */
+
+/* --- page mechanics --- */
+html { scroll-snap-type: y mandatory; background: var(--bg); }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--bone);
+  font: var(--fs-body) / var(--lh-body) var(--font-mono);
+  -webkit-font-smoothing: antialiased;
+}
 
 .screen {
   box-sizing: border-box;
   height: 100vh;
-  height: 100svh;            /* mobile: excludes browser chrome where supported */
   scroll-snap-align: start;
-  overflow: auto;            /* phones: stacked charts scroll inside the screen */
+  overflow: hidden;          /* 16:9 desktop only: every screen fits one viewport, no inner scroll */
+  padding: var(--s-6);
 }
 
-#chapter-indicator { position: fixed; top: 0; right: 0; pointer-events: none; }
-.tooltip { position: fixed; pointer-events: none; }
+/* --- type --- */
+h1, h2, h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 400;
+  text-transform: uppercase;
+  line-height: var(--lh-display);
+}
+h1 { font-size: var(--fs-display); }
+h2 { font-size: var(--fs-h2); }
+h3 { font-size: var(--fs-h3); }
+p { margin: 0; }
+
+.label {                     /* uppercase mono: KPI labels, nav, axis titles */
+  font-size: var(--fs-label);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-label);
+  color: var(--bone-60);
+}
+.caption { font-size: var(--fs-small); color: var(--bone-60); }
+.caveat { font-size: var(--fs-label); color: var(--bone-60); }   /* one line, links to #about */
+.num { font-variant-numeric: tabular-nums; }
+.signal { color: var(--signal); }   /* large/bold text only; max 2 red elements per viewport */
+
+a { color: inherit; text-decoration: underline; text-decoration-color: var(--hairline); text-underline-offset: 0.2em; }
+a:hover { text-decoration-color: var(--bone); }
+
+/* --- controls --- */
+button {
+  font: inherit;
+  font-size: var(--fs-label);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-label);
+  color: var(--bone-60);
+  background: none;
+  border: var(--rule);
+  border-radius: var(--radius);
+  padding: var(--s-1) var(--s-2);
+  cursor: pointer;
+}
+button:hover { color: var(--bone); }
+button[aria-pressed="true"] { color: var(--bone); border-color: var(--bone); }   /* toggle on: bone, red only when it is the active filter */
+button[disabled] { color: var(--bone-35); cursor: default; }
+.btn-primary { background: var(--signal-fill); border-color: var(--signal-fill); color: var(--bone); }
+
+:focus-visible { outline: 1px solid var(--bone); outline-offset: 2px; }
+
+/* --- shared chrome --- */
+#chapter-indicator {
+  position: fixed;
+  top: var(--s-3);
+  right: var(--s-6);
+  pointer-events: none;
+  font-size: var(--fs-label);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-label);
+  color: var(--bone-60);
+}
+.tooltip {
+  position: fixed;
+  pointer-events: none;
+  background: var(--surface);
+  border: var(--rule);
+  padding: var(--s-1) var(--s-2);
+  font-size: var(--fs-small);
+}
+
+/* --- charts --- */
+svg { display: block; overflow: visible; }
+svg text { font-family: var(--font-mono); font-size: var(--fs-label); fill: var(--bone-60); }
+.axis .domain, .axis .tick line, .grid line { stroke: var(--hairline); }
+.draw-in { stroke-dasharray: 1; stroke-dashoffset: 1; animation: draw-in 1.6s ease-out forwards; }  /* needs pathLength="1" */
+@keyframes draw-in { to { stroke-dashoffset: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0s !important; transition-duration: 0s !important; }
+}
+
+/* --- #home --- */
+.title-screen { display: flex; flex-direction: column; justify-content: flex-end; gap: var(--s-4); }
+.title-screen .lede { max-width: 48ch; color: var(--bone-60); }
+.title-screen .scroll-cue { margin-top: var(--s-5); }
+
+.kpi-screen { display: flex; flex-direction: column; gap: var(--s-4); }
+.kpi-row {
+  display: grid;
+  grid-template-columns: 1.6fr repeat(4, 1fr);   /* incidents needs room for 7 digits */
+  border-top: var(--rule);
+}
+.kpi { padding: var(--s-3) var(--s-3) 0 0; display: flex; flex-direction: column; gap: var(--s-2); }
+.kpi + .kpi { border-left: var(--rule); padding-left: var(--s-3); }
+.kpi-value { font-size: var(--fs-stat); font-weight: 700; line-height: 1; }
+.trend { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: var(--s-2); }
+.trend-plot { flex: 1; min-height: 0; }
+.footer { display: flex; justify-content: space-between; border-top: var(--rule); padding-top: var(--s-2); }
+
+/* Narrow-screen fallback: a notice, not a layout. */
+@media (max-width: 1023px) {
+  body > * { display: none; }
+  body::before { content: "Best viewed on a desktop (16:9)."; display: block; padding: var(--s-3); }
+}

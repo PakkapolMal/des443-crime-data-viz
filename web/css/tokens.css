@@ -1,0 +1,56 @@
+/* Design tokens. Rules for using them live in DESIGN.md. Variables only: no selectors besides :root. */
+@import url("https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@1&family=JetBrains+Mono:wght@400;700&display=swap");
+
+:root {
+  /* Ground */
+  --bg: #0b0b0b;
+  --surface: #141414;
+
+  /* Bone text. 35% fails AA for body text (2.7:1): disabled / decorative only. */
+  --bone: #e8e2d6;
+  --bone-60: rgb(232 226 214 / 0.60);
+  --bone-35: rgb(232 226 214 / 0.35);
+  --hairline: rgb(232 226 214 / 0.20);
+  --rule: 1px solid var(--hairline);
+
+  /* Signal red. Max 2 red elements per viewport. Never borders, decoration or large backgrounds. */
+  --signal: #e5383b;       /* text + data marks; text only at large/bold sizes (4.35-4.65:1) */
+  --signal-fill: #9d0208;  /* fills only (primary button, highlighted bar); never text */
+
+  /* Chart ramp: #2a2a2a -> #9d0208 -> #e5383b -> bone. Projectors lift black to grey, so the
+     low end is a visible neutral (not black or #4a0404, which merge on a projector). */
+  --ramp-0: #2a2a2a;
+  --ramp-1: #9d0208;
+  --ramp-2: #e5383b;
+  --ramp-3: #e8e2d6;
+  --context: var(--bone-60);  /* non-highlighted series */
+
+  /* Type */
+  --font-display: "Instrument Serif", Georgia, serif;   /* italic, uppercase, headings only */
+  --font-mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+  --lh-display: 0.9;
+  --lh-body: 1.5;
+  /* Everything below scales with viewport width so a screen keeps its proportions at any 16:9
+     resolution. The px floors are the 1280-wide values. */
+  --fs-display: max(90px, 7.083vw);         /* screen title, 136px at 1920 */
+  --fs-h2: max(48px, 3.75vw);               /* chapter heading, 72px at 1920 */
+  --fs-h3: max(26px, 2.083vw);              /* screen heading, 40px at 1920 */
+  --fs-stat: max(53px, 4.167vw);            /* KPI number (mono), 80px at 1920 */
+  /* Mono: 19 / 17 / 16px at 1920. */
+  --fs-body: max(13px, 1vw);
+  --fs-small: max(12px, 0.9vw);
+  --fs-label: max(11px, 0.833vw);           /* axis ticks, captions, nav */
+  --tracking-label: 0.08em;
+
+  /* Space: 4 / 8 / 16 / 24 / 40 / 64px at 1280, x1.5 at 1920 */
+  --s-1: max(4px, 0.3125vw);
+  --s-2: max(8px, 0.625vw);
+  --s-3: max(16px, 1.25vw);
+  --s-4: max(24px, 1.875vw);
+  --s-5: max(40px, 3.125vw);
+  --s-6: max(64px, 5vw);
+
+  /* Shape */
+  --radius: 0;
+  --shadow: none;
+}
