@@ -177,11 +177,12 @@ PROSECUTION_STAGE = {        # used by the funnel only
 ### Weapon → weapon_class
 `Weapon Desc` itself contains commas (for example "Firearm (unknown whether handgun, rifle, or shotgun)"), so **split on `Weapon Used Cd`, not on the description.**
 ```python
-# 1. Build CODE_TO_DESC from rows whose Weapon Used Cd has no comma (one code -> one description)
+# 1. Build CODE_TO_DESC from rows whose Weapon Used Cd has no comma. A code carries several
+#    descriptions (06 = Kitchen Knife, Screwdriver, Axe, ...), so map each code to its most frequent one.
 # 2. Split multi-value codes on r",\s*" and map each code through CODE_TO_DESC
 # 3. Classify each description:
 WEAPON_RULES = [  # first match wins; test against the lowercased description
-    ("Other",        r"bb|pellet|air gun|toy|replica|simulat|fake"),   # must run before Firearm
+    ("Other",        r"\bbb\b|pellet|air gun|toy|replica|simulat|fake|imitation"),   # before Firearm; \b keeps "stabbing" out
     ("Firearm",      r"handgun|rifle|shotgun|firearm|revolver|pistol|semi-auto|automatic|machine gun|assault weapon"),
     ("Knife",        r"knife|blade|cutting|stabbing|dagger|machete|razor|sword|ice pick|scissors"),
     ("Bodily Force", r"bodily force"),
@@ -288,7 +289,7 @@ All files are JSON arrays of records with compact separators, except `kpi.json`,
 | `flags_monthly.json` | incident | month, flag, count | Multi-line |
 | `report_lag_by_cat.json` | offense | category, q1, median, q3, p90, mean, count | Box plot from stats |
 | `top_locations.json` | incident | location, area, count, top_category (top 25) | Table |
-| `geo_grid.json` | incident | glat, glon, category, count (0.005° cells) | Density map |
+| `geo_grid.json` | incident | glat, glon, category, count (0.01° ≈ 1 km cells) | Density map |
 | `geo_sample.json` | incident | lat, lon, category, area, month (20k rows, seed 42) | Dot map with tooltips |
 
 Rules shared by all outputs: exclude "Not a Crime" incidents; drop zero or null coordinates from geo outputs only; use cohort-only rows for clearance and funnel outputs.

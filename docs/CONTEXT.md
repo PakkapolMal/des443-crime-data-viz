@@ -55,7 +55,7 @@ cols = ["DR_NO", "Date Rptd", "DATE OCC", "TIME OCC", "AREA NAME",
 ## Derived fields
 `date_occ`, `date_rptd`, `hour`, `minute`, `dow` (0 = Mon), `year`, `month` (`YYYY-MM`), `report_lag_days`, `has_person_victim`, `age_group` (0-17, 18-24, 25-34, 35-44, 45-54, 55-64, 65+), `vict_sex`, `vict_descent`, `descent_group`, `weapon`, `weapon_used`, `premise`, `area`, `crime`, `crime_cat`, `is_violent`, `outcome`, `is_arrest`.
 
-## Output plan → `data/processed/`
+## Output plan → `data/processed/lapd/`
 All JSON files are arrays of records, except `kpi` and `fact_dicts`, which are objects. Use compact separators.
 
 | File | Shape (keys) | Chart |

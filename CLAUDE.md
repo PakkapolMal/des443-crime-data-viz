@@ -3,12 +3,12 @@
 Read `CONTEXT.md` first. It covers the dataset quirks, the mappings and the output contract.
 
 ## Task
-Build a local Python pipeline that turns `data/raw/crime_dataset.csv` into the JSON files listed in `CONTEXT.md` → *Output plan*, written to `data/processed/`. A separate D3.js dashboard consumes those files.
+Build a local Python pipeline that turns `data/raw/crime_dataset.csv` into the JSON files listed in `CONTEXT.md` → *Output plan*, written to `data/processed/lapd/`. A separate D3.js dashboard consumes those files.
 
 ## Layout (assumed, create if missing)
 ```
 data/raw/crime_dataset.csv     # input, read-only
-data/processed/                # outputs
+data/processed/lapd/           # outputs
 src/transform.py               # pipeline (port of la_crime_transform.py)
 src/validate.py                # sanity checks on outputs
 requirements.txt               # pandas, numpy

@@ -226,7 +226,7 @@ def main():
     root = Path(__file__).resolve().parents[1]
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--input", type=Path, default=root / "data/raw/crime_dataset.csv")
-    ap.add_argument("--output", type=Path, default=root / "data/processed")
+    ap.add_argument("--output", type=Path, default=root / "data/processed/lapd")
     ap.add_argument("--trend-end", default="2024-02")
     a = ap.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(message)s")
