@@ -62,7 +62,6 @@ export async function outcomes(el, { data, lazy }) {
     item.append("span")
       .style("width", "10px")
       .style("height", "10px")
-      .style("border-radius", "2px")
       .style("background", color);
     item.append("span")
       .attr("class", "label")
@@ -305,7 +304,8 @@ export async function funnel(el, { data, lazy }) {
   const maxBarWidth = Math.max(100, width - margin.left - margin.right);
 
   const xScale = d3.scaleLinear().domain([0, baseCount]).range([0, maxBarWidth]);
-  const stageColors = ["var(--bone)", "var(--bone-60)", "var(--signal)", "#34d399"];
+  // "Filed" is the punchline, so it is the one red stage (DESIGN.md: red is a signal).
+  const stageColors = ["var(--bone)", "var(--bone-60)", "var(--bone-35)", "var(--signal)"];
 
   const svg = chartBox.append("svg")
     .attr("width", "100%")
@@ -392,7 +392,7 @@ export async function funnel(el, { data, lazy }) {
 
     if (stepRetention) {
       labelGroup.append("tspan")
-        .attr("fill", stageColors[i % stageColors.length])
+        .attr("fill", "var(--bone-60)")
         .style("font-weight", "600")
         .text(`  •  ${stepRetention}% retention`);
     }
@@ -404,7 +404,6 @@ export async function funnel(el, { data, lazy }) {
 
     const alertBox = wrapper.append("div")
       .style("background", "var(--surface)")
-      .style("border", "1px solid var(--signal)")
       .style("padding", "var(--s-2) var(--s-3)")
       .style("display", "flex")
       .style("justify-content", "space-between")
@@ -413,8 +412,7 @@ export async function funnel(el, { data, lazy }) {
 
     alertBox.html(`
       <div style="display:flex; align-items:center; gap:var(--s-1);">
-        <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--signal);"></span>
-        <span class="label" style="color:var(--signal);">PROSECUTORIAL REJECTIONS (DA / CA)</span>
+        <span class="label">PROSECUTORIAL REJECTIONS (DA / CA)</span>
       </div>
       <div style="font-size:var(--fs-label); color:var(--bone); font-weight:600;">
         ${d3.format(",")(rejectedStage.count)} cases <span style="font-size:var(--fs-small); color:var(--bone-60); font-weight:normal;">(${rejPct}% of cleared arrests rejected)</span>
@@ -654,20 +652,20 @@ export async function lag(el, { data, lazy }) {
   const sameDayItems = lagData.filter(d => Number(d.median || 0) === 0);
 
   summaryBox.html(`
-    <div style="background:var(--surface); border:var(--rule); border-left:4px solid var(--signal); padding:var(--s-2) var(--s-3);">
-      <div class="label" style="color:var(--signal);">LONGEST DELAY</div>
+    <div style="background:var(--surface); padding:var(--s-2) var(--s-3);">
+      <div class="label">LONGEST DELAY</div>
       <div style="font-size:var(--fs-label); font-weight:700; color:var(--bone); font-family:var(--font-mono); margin-top:2px;">${maxDelayItem.category}</div>
       <div class="caption" style="margin-top:4px;">Median <strong>${maxDelayItem.median} days</strong> reporting lag due to delayed bank/statement discovery.</div>
     </div>
 
-    <div style="background:var(--surface); border:var(--rule); border-left:4px solid var(--bone); padding:var(--s-2) var(--s-3);">
+    <div style="background:var(--surface); padding:var(--s-2) var(--s-3);">
       <div class="label">IMMEDIATE REPORTING</div>
       <div style="font-size:var(--fs-label); font-weight:700; color:var(--bone); font-family:var(--font-mono); margin-top:2px;">${sameDayItems.length} Crime Categories</div>
       <div class="caption" style="margin-top:4px;">Violent & emergency crimes (Assault, Homicide, Robbery) have a median <strong>0-day lag</strong>.</div>
     </div>
 
-    <div style="background:var(--surface); border:var(--rule); border-left:4px solid var(--bone-60); padding:var(--s-2) var(--s-3);">
-      <div class="label" style="color:var(--bone-60);">PROPERTY CRIME LAG</div>
+    <div style="background:var(--surface); padding:var(--s-2) var(--s-3);">
+      <div class="label">PROPERTY CRIME LAG</div>
       <div style="font-size:var(--fs-label); font-weight:700; color:var(--bone); font-family:var(--font-mono); margin-top:2px;">1 – 2 Days Median</div>
       <div class="caption" style="margin-top:4px;">Vehicle thefts & burglaries reflect delayed discovery when owners return to property.</div>
     </div>

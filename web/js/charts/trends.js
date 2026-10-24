@@ -5,6 +5,7 @@
  */
 
 import * as d3 from "https://cdn.jsdelivr.net/npm/d3@7.9.0/+esm";
+import { CATEGORIES } from "../util.js";
 
 /**
  * Screen 1: Monthly multi-line chart by category with interactive toggle legend
@@ -203,16 +204,20 @@ export async function weekly(el, { data, lazy }) {
     .attr("class", "caption")
     .style("margin-top", "var(--s-1)")
     .style("margin-bottom", "var(--s-2)")
-    .text("Scaled to category share (0 = Mon, 1st-of-month default entries excluded).");
+    .text("Share of each category's incidents by weekday. The 8 largest categories, in severity order.");
+
+  // ~8 panels fit one screen without scrolling (DESIGN.md: few series per chart).
+  const totals = d3.rollup(dowData, v => d3.sum(v, d => Number(d.count || 0)), d => d.category);
+  const top8 = new Set([...totals].sort((a, b) => b[1] - a[1]).slice(0, 8).map(d => d[0]));
+  const categories = CATEGORIES.filter(c => top8.has(c));
 
   const dowGrid = leftCol.append("div")
     .style("display", "grid")
-    .style("grid-template-columns", "repeat(auto-fill, minmax(120px, 1fr))")
+    .style("grid-template-columns", "repeat(4, 1fr)")
+    .style("grid-template-rows", "repeat(2, 1fr)")
     .style("gap", "var(--s-2)")
-    .style("overflow-y", "auto")
-    .style("flex", "1");
-
-  const categories = Array.from(new Set(dowData.map(d => d.category))).sort();
+    .style("flex", "1")
+    .style("min-height", "0");
 
   categories.forEach(cat => {
     const catRows = dowData.filter(d => d.category === cat);
@@ -220,27 +225,28 @@ export async function weekly(el, { data, lazy }) {
 
     const card = dowGrid.append("div")
       .style("background", "var(--surface)")
-      .style("border", "var(--rule)")
-      .style("padding", "var(--s-2)");
+      .style("padding", "var(--s-2)")
+      .style("display", "flex")
+      .style("flex-direction", "column")
+      .style("min-height", "0");
 
     card.append("div")
       .attr("class", "label")
-      .style("white-space", "nowrap")
-      .style("overflow", "hidden")
-      .style("text-overflow", "ellipsis")
       .style("margin-bottom", "var(--s-1)")
       .text(cat);
 
-    const cardSvg = card.append("svg")
-      .attr("width", "100%")
-      .attr("height", 60);
+    const plot = card.append("div").style("flex", "1").style("min-height", "0");
+    const { width: cardW = 110, height: cardH = 60 } = plot.node().getBoundingClientRect();
+    const labelH = 22;
+    const cardSvg = plot.append("svg")
+      .attr("width", cardW)
+      .attr("height", cardH);
 
-    const cardW = 110;
     const xScale = d3.scaleBand().domain(d3.range(7)).range([0, cardW]).padding(0.2);
     const maxShare = d3.max(catRows, d => Number(d.count || 0) / total) || 0.2;
-    const yScale = d3.scaleLinear().domain([0, maxShare]).range([42, 0]);
+    const barH = Math.max(10, cardH - labelH);
+    const yScale = d3.scaleLinear().domain([0, maxShare]).range([barH, 0]);
 
-    // Draw Bars with Hover Interactivity
     cardSvg.selectAll("rect")
       .data(catRows)
       .enter()
@@ -248,7 +254,7 @@ export async function weekly(el, { data, lazy }) {
       .attr("x", d => xScale(d.dow))
       .attr("y", d => yScale(Number(d.count || 0) / total))
       .attr("width", xScale.bandwidth())
-      .attr("height", d => Math.max(0, 42 - yScale(Number(d.count || 0) / total)))
+      .attr("height", d => Math.max(0, barH - yScale(Number(d.count || 0) / total)))
       .attr("fill", "var(--bone)")
       .style("cursor", "pointer")
       .on("mouseover", function (event, d) {
@@ -268,13 +274,12 @@ export async function weekly(el, { data, lazy }) {
         tooltip.style("opacity", 0);
       });
 
-    // Day Labels (M T W T F S S)
     cardSvg.selectAll(".day-label")
       .data(d3.range(7))
       .enter()
       .append("text")
       .attr("x", d => xScale(d) + xScale.bandwidth() / 2)
-      .attr("y", 56)
+      .attr("y", cardH - 4)
       .attr("text-anchor", "middle")
       .attr("fill", "var(--bone-60)")
       .text(d => dayAbbr[d]);

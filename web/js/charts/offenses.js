@@ -5,6 +5,7 @@
  */
 
 import * as d3 from "https://cdn.jsdelivr.net/npm/d3@7.9.0/+esm";
+import { CATEGORIES, ramp } from "../util.js";
 
 /**
  * Screen 1: NIBRS Offense Classification Hierarchy Treemap
@@ -96,170 +97,109 @@ export async function hierarchy(el, { data, lazy }) {
   const width = bbox.width || 850;
   const height = bbox.height || 420;
 
-  const getNodeName = (d) => String(d?.name || d?.offense || d?.category || d?.label || "Offense");
+  const getNodeName = (d) => String(d?.name || "Offense");
 
-  const rootChildren = Array.isArray(rawHierarchy) ? rawHierarchy : (rawHierarchy?.children || []);
-  const rootData = { name: "All Crimes", children: rootChildren };
+  // offense_hierarchy.json is flat {category, label, count}. Group it so the audience reads ~8
+  // categories (DESIGN.md: few series); within each, the top 4 offenses and one roll-up tile.
+  const TOP_CATS = 8, TOP_LEAVES = 4;
+  const rows = Array.isArray(rawHierarchy) ? rawHierarchy : [];
+  const byCat = d3.rollups(rows, v => d3.rollups(v, w => d3.sum(w, r => +r.count || 0), r => r.label), r => r.category)
+    .map(([name, leaves]) => ({ name, leaves: leaves.sort((x, y) => y[1] - x[1]), total: d3.sum(leaves, l => l[1]) }))
+    .sort((x, y) => y.total - x.total);
+  const toLeaves = (leaves) => {
+    const kept = leaves.slice(0, TOP_LEAVES).map(([name, value]) => ({ name, value }));
+    const rest = d3.sum(leaves.slice(TOP_LEAVES), l => l[1]);
+    if (rest > 0) kept.push({ name: `${leaves.length - TOP_LEAVES} other offenses`, value: rest, rollup: true });
+    return kept;
+  };
+  const children = byCat.slice(0, TOP_CATS).map(c => ({ name: c.name, children: toLeaves(c.leaves) }));
+  const tail = byCat.slice(TOP_CATS);
+  if (tail.length) {
+    children.push({ name: `${tail.length} other categories`, children: [{ name: "All offenses", value: d3.sum(tail, c => c.total), rollup: true }] });
+  }
 
-  const root = d3.hierarchy(rootData)
-    .sum(d => Number(d.value || d.count || d.size || 0))
+  const root = d3.hierarchy({ name: "All Crimes", children })
+    .sum(d => d.value || 0)
     .sort((a, b) => b.value - a.value);
 
   const totalValue = root.value || 1;
   updateBanner(null);
 
-  // Check if dataset has multi-level parent groups
-  const hasCategoryGroups = root.children && root.children.some(d => d.children && d.children.length > 0);
-
-  const treemapLayout = d3.treemap()
+  const HEADER = 26;
+  d3.treemap()
     .size([width, height])
     .paddingOuter(3)
     .paddingInner(2)
-    .round(true);
+    .paddingTop(d => d.depth === 1 ? HEADER : 3)
+    .round(true)(root);
 
-  if (hasCategoryGroups) {
-    treemapLayout.paddingTop(d => (d.depth === 1 && d.children) ? 22 : 2);
-  } else {
-    treemapLayout.paddingTop(2);
-  }
-
-  treemapLayout(root);
-
-  const rawCatNames = root.children ? root.children.map(d => getNodeName(d.data)) : [];
-  const categoryNames = Array.from(new Set(rawCatNames));
-
-  const palette = [
-    "#38bdf8", "#f43f5e", "#fbbf24", "#34d399", "#a78bfa", 
-    "#fb923c", "#2dd4bf", "#f472b6", "#818cf8", "#a3e635"
-  ];
-
-  const colorScale = d3.scaleOrdinal()
-    .domain(categoryNames)
-    .range(palette);
+  // The largest category is the highlight (red); the rest are bone steps by rank.
+  const topCat = root.children?.[0];
+  const catOf = d => d.ancestors().find(a => a.depth === 1);
+  const isTop = d => catOf(d) === topCat;
+  const leafFill = d => isTop(d) ? "var(--signal-fill)" : (d.data.rollup ? "var(--surface)" : "var(--ramp-0)");
 
   const svg = chartBox.append("svg")
     .attr("width", "100%")
     .attr("height", "100%")
     .attr("viewBox", `0 0 ${width} ${height}`);
 
-  const defs = svg.append("defs");
+  // Fit a label to its box: drop it if too tall, ellipsize if too wide, drop if still too wide.
+  const fitText = (textEl, maxW, maxH) => {
+    const node = textEl.node();
+    if (node.getBBox().height > maxH) return textEl.remove();
+    let str = node.textContent;
+    while (node.getComputedTextLength() > maxW && str.length > 4) {
+      str = str.slice(0, -2);
+      node.textContent = str + "…";
+    }
+    if (node.getComputedTextLength() > maxW) textEl.remove();
+  };
 
-  // Render Parent Headers ONLY for nodes that are true multi-child containers
-  const parentNodes = root.descendants().filter(d => d.depth === 1 && d.children && d.children.length > 0);
+  const parents = svg.selectAll("g.parent")
+    .data(root.children || [])
+    .join("g")
+    .attr("class", "parent");
 
-  if (parentNodes.length > 0) {
-    const parents = svg.selectAll("g.parent")
-      .data(parentNodes)
-      .enter()
-      .append("g")
-      .attr("class", "parent");
+  parents.append("rect")
+    .attr("x", d => d.x0)
+    .attr("y", d => d.y0)
+    .attr("width", d => Math.max(0, d.x1 - d.x0))
+    .attr("height", d => Math.max(0, d.y1 - d.y0))
+    .attr("fill", "none")
+    .attr("stroke", "var(--hairline)");
 
-    // Container border
-    parents.append("rect")
-      .attr("x", d => d.x0)
-      .attr("y", d => d.y0)
-      .attr("width", d => Math.max(0, d.x1 - d.x0))
-      .attr("height", d => Math.max(0, d.y1 - d.y0))
-      .attr("fill", "var(--bg)")
-      .attr("fill-opacity", 0.4)
-      .attr("stroke", d => colorScale(getNodeName(d.data)))
-      .attr("stroke-width", 1)
-      .attr("rx", 2);
+  parents.append("text")
+    .attr("x", d => d.x0 + 6)
+    .attr("y", d => d.y0 + HEADER * 0.68)
+    .attr("fill", "var(--bone)")
+    .style("font-weight", "700")
+    .style("letter-spacing", "var(--tracking-label)")
+    .style("pointer-events", "none")
+    .text(d => `${getNodeName(d.data).toUpperCase()} ${((d.value / totalValue) * 100).toFixed(0)}%`)
+    .each(function (d) { fitText(d3.select(this), d.x1 - d.x0 - 12, HEADER); });
 
-    // Dedicated Header Bar
-    parents.append("rect")
-      .attr("x", d => d.x0)
-      .attr("y", d => d.y0)
-      .attr("width", d => Math.max(0, d.x1 - d.x0))
-      .attr("height", 20)
-      .attr("fill", "var(--surface)")
-      .attr("fill-opacity", 0.95);
-
-    // Header Clip-Path
-    parents.each(function (d, i) {
-      const headerW = Math.max(0, d.x1 - d.x0);
-      const clipId = `parent-clip-${i}`;
-      defs.append("clipPath")
-        .attr("id", clipId)
-        .append("rect")
-        .attr("x", d.x0)
-        .attr("y", d.y0)
-        .attr("width", headerW)
-        .attr("height", 20);
-
-      d3.select(this).attr("clip-path", `url(#${clipId})`);
-    });
-
-    // Parent Header Title
-    parents.append("text")
-      .attr("x", d => d.x0 + 6)
-      .attr("y", d => d.y0 + 14)
-      .attr("fill", d => colorScale(getNodeName(d.data)))
-      .style("font-family", "var(--font-mono)")
-      .style("font-size", "10px")
-      .style("font-weight", "700")
-      .style("letter-spacing", "0.05em")
-      .style("pointer-events", "none")
-      .text(d => getNodeName(d.data).toUpperCase());
-  }
-
-  // Render Leaf Nodes
   const leaves = svg.selectAll("g.leaf")
     .data(root.leaves())
-    .enter()
-    .append("g")
+    .join("g")
     .attr("class", "leaf")
     .attr("transform", d => `translate(${d.x0},${d.y0})`);
-
-  leaves.each(function (d, i) {
-    const boxW = Math.max(0, d.x1 - d.x0);
-    const boxH = Math.max(0, d.y1 - d.y0);
-    const clipId = `leaf-clip-${i}`;
-
-    defs.append("clipPath")
-      .attr("id", clipId)
-      .append("rect")
-      .attr("width", boxW)
-      .attr("height", boxH)
-      .attr("rx", 2);
-
-    d3.select(this).attr("clip-path", `url(#${clipId})`);
-  });
 
   leaves.append("rect")
     .attr("width", d => Math.max(0, d.x1 - d.x0))
     .attr("height", d => Math.max(0, d.y1 - d.y0))
-    .attr("fill", d => {
-      const topCategoryNode = d.ancestors().find(a => a.depth === 1);
-      const topCategory = topCategoryNode ? getNodeName(topCategoryNode.data) : getNodeName(d.data);
-      return colorScale(topCategory);
-    })
-    .attr("fill-opacity", 0.35)
-    .attr("stroke", d => {
-      const topCategoryNode = d.ancestors().find(a => a.depth === 1);
-      const topCategory = topCategoryNode ? getNodeName(topCategoryNode.data) : getNodeName(d.data);
-      return colorScale(topCategory);
-    })
-    .attr("stroke-width", 1)
-    .attr("rx", 2)
+    .attr("fill", leafFill)
+    .attr("stroke", "var(--bg)")
     .style("cursor", "pointer")
     .on("mouseover", function (event, d) {
-      d3.select(this)
-        .attr("fill-opacity", 0.85)
-        .attr("stroke", "var(--bone)")
-        .attr("stroke-width", 1.5);
-      
+      d3.select(this).attr("stroke", "var(--bone)");
       updateBanner(d);
-
-      const topCategoryNode = d.ancestors().find(a => a.depth === 1);
-      const topCategory = topCategoryNode ? getNodeName(topCategoryNode.data) : "N/A";
       const share = ((d.value / totalValue) * 100).toFixed(1);
-
       tooltip.html(`
         <strong style="color:var(--bone);">${getNodeName(d.data)}</strong><br/>
-        Category: <em>${topCategory}</em><br/>
+        Category: <em>${getNodeName(catOf(d).data)}</em><br/>
         Volume: <strong>${d3.format(",")(d.value)}</strong><br/>
-        Share of Total: <strong style="color:var(--signal);">${share}%</strong>
+        Share of total: <strong>${share}%</strong>
       `).style("opacity", 1);
     })
     .on("mousemove", event => {
@@ -268,54 +208,31 @@ export async function hierarchy(el, { data, lazy }) {
         .style("top", (event.clientY - 28) + "px");
     })
     .on("mouseout", function () {
-      d3.select(this)
-        .attr("fill-opacity", 0.35)
-        .attr("stroke", d => {
-          const topCategoryNode = d.ancestors().find(a => a.depth === 1);
-          const topCategory = topCategoryNode ? getNodeName(topCategoryNode.data) : getNodeName(d.data);
-          return colorScale(topCategory);
-        })
-        .attr("stroke-width", 1);
-
+      d3.select(this).attr("stroke", "var(--bg)");
       updateBanner(null);
       tooltip.style("opacity", 0);
     });
 
-  // Clean Single-Layer Text Labels inside Leaf Tiles
+  // Direct labels: name, then volume and share, each only where it fits (font from svg text = --fs-label).
   leaves.each(function (d) {
-    const boxW = d.x1 - d.x0;
+    const boxW = d.x1 - d.x0 - 12;
     const boxH = d.y1 - d.y0;
-
-    if (boxW >= 32 && boxH >= 16) {
-      const leafName = getNodeName(d.data);
-      const share = ((d.value / totalValue) * 100).toFixed(1);
-      const formattedVal = d3.format("~s")(d.value);
-
-      const text = d3.select(this).append("text")
-        .attr("x", 5)
-        .attr("y", 13)
-        .attr("fill", "var(--bone)")
-        .style("font-family", "var(--font-mono)")
-        .style("font-size", boxW < 60 ? "8px" : "9.5px")
-        .style("font-weight", "600")
-        .style("pointer-events", "none");
-
-      // Line 1: Offense Name
-      text.append("tspan")
-        .attr("x", 5)
-        .text(leafName);
-
-      // Line 2: Volume & Share
-      if (boxH >= 28) {
-        text.append("tspan")
-          .attr("x", 5)
-          .attr("dy", "1.15em")
-          .attr("fill", "var(--bone-60)")
-          .style("font-size", "8px")
-          .style("font-weight", "500")
-          .text(`${formattedVal} (${share}%)`);
-      }
-    }
+    const g = d3.select(this);
+    const name = g.append("text")
+      .attr("x", 6).attr("y", "1.3em")
+      .attr("fill", d.data.rollup ? "var(--bone-60)" : "var(--bone)")
+      .style("pointer-events", "none")
+      .text(getNodeName(d.data));
+    fitText(name, boxW, boxH - 4);
+    if (!name.node().isConnected) return;
+    const val = g.append("text")
+      .attr("x", 6).attr("y", "2.6em")
+      .attr("fill", "var(--bone-60)")
+      .attr("class", "num")
+      .style("pointer-events", "none")
+      .text(`${d3.format(",")(d.value)} · ${((d.value / totalValue) * 100).toFixed(1)}%`);
+    if (val.node().getBBox().y + val.node().getBBox().height > boxH - 2) val.remove();
+    else fitText(val, boxW, boxH);
   });
 }
 
@@ -395,16 +312,22 @@ export async function cooccurrence(el, { data, lazy }) {
     .style("position", "relative")
     .style("overflow", "hidden");
 
-  const items = Array.from(new Set([
+  const present = new Set([
     ...rawData.map(d => String(d.source || d.cat1 || "")),
     ...rawData.map(d => String(d.target || d.cat2 || ""))
-  ])).filter(Boolean).sort();
+  ]);
+  // Fixed severity order (DESIGN.md); anything outside CATEGORIES goes last.
+  const items = [...CATEGORIES.filter(c => present.has(c)), ...[...present].filter(c => c && !CATEGORIES.includes(c)).sort()];
 
   const bbox = chartBox.node()?.getBoundingClientRect() || {};
   const width = bbox.width || 900;
   const height = bbox.height || 450;
   
-  const margin = { top: 120, right: 30, bottom: 20, left: 165 };
+  // Margins fit the longest label: row labels at --fs-small, 45° column labels at --fs-label (mono ≈ 0.62em/char).
+  const longest = d3.max(items, d => d.length) || 10;
+  const fsSmall = Math.max(12, window.innerWidth * 0.009);
+  const fsLabel = Math.max(11, window.innerWidth * 0.00833);
+  const margin = { top: longest * fsLabel * 0.62 * 0.71 + 16, right: 30, bottom: 20, left: longest * fsSmall * 0.62 + 16 };
 
   const innerW = Math.max(100, width - margin.left - margin.right);
   const innerH = Math.max(100, height - margin.top - margin.bottom);
@@ -420,7 +343,9 @@ export async function cooccurrence(el, { data, lazy }) {
   const yScale = d3.scaleBand().domain(items).range([0, innerH]).padding(0.08);
 
   const maxVal = d3.max(rawData, d => Number(d.value || d.count || 0)) || 100;
-  const colorScale = d3.scaleSequential(d3.interpolateReds).domain([0, maxVal]);
+  // DESIGN.md ramp on a log domain: pair counts are heavily skewed (median ~50, max ~11.6k).
+  const logMax = Math.log(Math.max(2, maxVal));
+  const colorScale = (v) => ramp(Math.log(Math.max(1, v)) / logMax);
 
   // X Axis
   g.append("g")

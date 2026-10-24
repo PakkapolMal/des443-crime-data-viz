@@ -93,7 +93,7 @@ export async function weapons(el, { data, lazy }) {
     .style("background", "var(--surface)")
     .style("border", "var(--rule)")
     .style("position", "relative")
-    .style("overflow-y", "auto");
+    .style("overflow", "hidden");
 
   const bbox = chartBox.node()?.getBoundingClientRect() || {};
   const width = bbox.width || 800;
@@ -434,9 +434,9 @@ export async function summary(el, { data, lazy }) {
     "var(--signal)",
     "var(--bone)",
     "var(--bone-60)",
+    "var(--bone-35)",
     "var(--hairline)",
-    "#a78bfa",
-    "#fbbf24"
+    "var(--surface)"
   ];
 
   pieData.forEach((d, i) => {
@@ -444,7 +444,6 @@ export async function summary(el, { data, lazy }) {
     const card = kpiBox.append("div")
       .style("background", "var(--surface)")
       .style("border", "var(--rule)")
-      .style("border-left", `4px solid ${colorPalette[i % colorPalette.length]}`)
       .style("padding", "var(--s-2) var(--s-3)");
 
     card.html(`

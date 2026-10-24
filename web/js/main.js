@@ -34,6 +34,7 @@ async function loadScreen(chapterId, screenName, element) {
     const renderFn = module[screenName] || module.default;
 
     if (typeof renderFn === "function") {
+      await document.fonts.ready; // charts measure text (label fitting); fallback-font metrics are wrong
       await renderFn(element, { lazy });
     }
   } catch (err) {

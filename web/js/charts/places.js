@@ -5,6 +5,7 @@
  */
 
 import * as d3 from "https://cdn.jsdelivr.net/npm/d3@7.9.0/+esm";
+import { CATEGORIES, ramp } from "../util.js";
 
 // Regional Anchors (Zoomed Out view)
 const REGIONAL_ANCHORS = [
@@ -189,18 +190,6 @@ export async function map(el, { data, lazy }) {
     .attr("height", "100%")
     .attr("viewBox", `0 0 ${width} ${height}`);
 
-  const defs = svg.append("defs");
-  const blurFilter = defs.append("filter")
-    .attr("id", "heatmap-glow")
-    .attr("x", "-50%")
-    .attr("y", "-50%")
-    .attr("width", "200%")
-    .attr("height", "200%");
-
-  blurFilter.append("feGaussianBlur")
-    .attr("stdDeviation", "3.5")
-    .attr("result", "blur");
-
   const mapGroup = svg.append("g");
   const labelGroup = svg.append("g");
 
@@ -257,7 +246,9 @@ export async function map(el, { data, lazy }) {
       ? Object.values(DIVISION_CENTROIDS)
       : REGIONAL_ANCHORS;
 
-    const baseFontSizePx = isZoomedIn ? 7 : 10;
+    // Place labels at the --fs-label size (16px at 1920, 11px floor); a little smaller once zoomed in.
+    const labelPx = Math.max(11, window.innerWidth * 0.00833);
+    const baseFontSizePx = isZoomedIn ? labelPx * 0.8 : labelPx;
     const effectiveFontSize = baseFontSizePx / currentZoomScale;
     const dotRadius = (isZoomedIn ? 1.8 : 2.5) / currentZoomScale;
     const strokeWidth = (isZoomedIn ? 0.8 : 1.2) / currentZoomScale;
@@ -274,7 +265,7 @@ export async function map(el, { data, lazy }) {
       g.append("circle")
         .attr("r", dotRadius)
         .attr("fill", "var(--bone)")
-        .attr("stroke", "var(--signal)")
+        .attr("stroke", "var(--bg)")
         .attr("stroke-width", strokeWidth);
 
       g.append("text")
@@ -314,27 +305,12 @@ export async function map(el, { data, lazy }) {
       });
 
       const maxVal = d3.max(aggregated, d => d.count) || 100;
-      const colorScale = d3.scaleSequentialLog()
-        .domain([1, maxVal])
-        .interpolator(d3.interpolateReds);
+      // DESIGN.md ramp on a log domain (skewed counts); every drawn cell has count >= 1.
+      const logMax = Math.log(Math.max(2, maxVal));
+      const colorScale = (v) => ramp(Math.log(Math.max(1, v)) / logMax);
 
       const cellW = Math.abs(xScale(-118.25) - xScale(-118.26)) * 1.35;
       const cellH = Math.abs(yScale(34.05) - yScale(34.06)) * 1.35;
-
-      // Glow layer
-      mapGroup.append("g")
-        .attr("filter", "url(#heatmap-glow)")
-        .selectAll("rect.glow")
-        .data(aggregated)
-        .enter()
-        .append("rect")
-        .attr("class", "glow")
-        .attr("x", d => xScale(d.glon) - cellW * 0.2)
-        .attr("y", d => yScale(d.glat) - cellH * 0.2)
-        .attr("width", cellW * 1.4)
-        .attr("height", cellH * 1.4)
-        .attr("fill", d => colorScale(d.count))
-        .attr("opacity", 0.75);
 
       // Interactive cells
       mapGroup.append("g")
@@ -348,7 +324,6 @@ export async function map(el, { data, lazy }) {
         .attr("width", cellW)
         .attr("height", cellH)
         .attr("fill", d => colorScale(d.count))
-        .attr("opacity", 0.85)
         .style("cursor", "pointer")
         .on("mouseover", function (event, d) {
           d3.select(this).attr("stroke", "var(--bone)").attr("stroke-width", 1);
@@ -473,24 +448,35 @@ export async function areas(el, { data, lazy }) {
 
   const barsBox = leftCol.append("div")
     .style("flex", "1")
-    .style("overflow-y", "auto")
+    .style("min-height", "0")
+    .style("overflow", "hidden")
     .style("position", "relative");
 
-  const categories = Array.from(new Set(areaByCat.map(d => d.category))).sort();
+  // Fixed severity order (DESIGN.md), only categories present in the data.
+  const present = new Set(areaByCat.map(d => d.category));
+  const categories = CATEGORIES.filter(c => present.has(c));
+
+  // Size rows and margins to the box so every division fits one screen at any 16:9 size.
+  const k = Math.max(1, window.innerWidth / 1280);
+  const barsBoxRect = barsBox.node().getBoundingClientRect();
+  const hmMargin = { top: 105 * k, right: 20, bottom: 10, left: 105 * k };
+  const bannerAllowance = 44 * k;
+  const rowH = Math.max(14, Math.floor((barsBoxRect.height - hmMargin.top - hmMargin.bottom - bannerAllowance) / summary.length));
+  const barMax = Math.max(80, barsBoxRect.width - 105 * k - 70 * k);
 
   const barSvg = barsBox.append("svg")
     .attr("width", "100%")
-    .attr("height", summary.length * 21 + 10);
+    .attr("height", summary.length * rowH + 10);
 
   const maxTotal = summary[0]?.total || 30000;
-  const barXScale = d3.scaleLinear().domain([0, maxTotal]).range([0, 160]);
+  const barXScale = d3.scaleLinear().domain([0, maxTotal]).range([0, barMax]);
 
   const barRows = barSvg.selectAll(".area-bar-row")
     .data(summary)
     .enter()
     .append("g")
     .attr("class", "area-bar-row")
-    .attr("transform", (d, i) => `translate(0, ${i * 21})`)
+    .attr("transform", (d, i) => `translate(0, ${i * rowH})`)
     .style("cursor", "pointer")
     .on("click", function (event, d) {
       selectedArea = selectedArea === d.area ? null : d.area;
@@ -498,8 +484,8 @@ export async function areas(el, { data, lazy }) {
     });
 
   barRows.append("text")
-    .attr("x", 95)
-    .attr("y", 14)
+    .attr("x", 95 * k)
+    .attr("y", rowH * 0.72)
     .attr("text-anchor", "end")
     .attr("fill", "var(--bone)")
     .style("font-size", "var(--fs-small)")
@@ -507,15 +493,15 @@ export async function areas(el, { data, lazy }) {
 
   barRows.append("rect")
     .attr("class", "area-bar")
-    .attr("x", 105)
-    .attr("y", 2)
+    .attr("x", 105 * k)
+    .attr("y", rowH * 0.1)
     .attr("width", d => Math.max(0, barXScale(Number(d.total || 0))))
-    .attr("height", 15)
+    .attr("height", rowH * 0.75)
     .attr("fill", "var(--bone)");
 
   barRows.append("text")
-    .attr("x", d => 112 + barXScale(Number(d.total || 0)))
-    .attr("y", 13)
+    .attr("x", d => 112 * k + barXScale(Number(d.total || 0)))
+    .attr("y", rowH * 0.68)
     .attr("fill", "var(--bone-60)")
     .style("font-size", "var(--fs-label)")
     .text(d => d3.format(",")(Number(d.total || 0)));
@@ -557,13 +543,14 @@ export async function areas(el, { data, lazy }) {
 
   const heatmapBox = rightCol.append("div")
     .style("flex", "1")
-    .style("overflow", "auto")
+    .style("min-height", "0")
+    .style("overflow", "hidden")
     .style("position", "relative");
 
-  const hmMargin = { top: 105, right: 20, bottom: 20, left: 105 };
-  const cellWidth = 32;
+  const hmBoxW = heatmapBox.node().getBoundingClientRect().width;
+  const cellWidth = Math.max(20, (hmBoxW - hmMargin.left - hmMargin.right - 60 * k) / categories.length);
   const hmWidth = categories.length * cellWidth + hmMargin.left + hmMargin.right;
-  const hmHeight = summary.length * 21 + hmMargin.top + hmMargin.bottom;
+  const hmHeight = summary.length * rowH + hmMargin.top + hmMargin.bottom;
 
   const hmSvg = heatmapBox.append("svg")
     .attr("width", hmWidth)
@@ -572,7 +559,7 @@ export async function areas(el, { data, lazy }) {
   const hmG = hmSvg.append("g").attr("transform", `translate(${hmMargin.left},${hmMargin.top})`);
 
   const xScale = d3.scaleBand().domain(categories).range([0, categories.length * cellWidth]).padding(0.08);
-  const yScale = d3.scaleBand().domain(summary.map(d => d.area)).range([0, summary.length * 21]).padding(0.08);
+  const yScale = d3.scaleBand().domain(summary.map(d => d.area)).range([0, summary.length * rowH]).padding(0.08);
 
   hmG.append("g")
     .selectAll(".cat-label")
@@ -615,7 +602,7 @@ export async function areas(el, { data, lazy }) {
   });
 
   const maxShare = d3.max(heatmapData, d => d.share) || 0.3;
-  const colorScale = d3.scaleSequential(d3.interpolateReds).domain([0, maxShare]);
+  const colorScale = (v) => ramp(v / maxShare);
 
   const rects = hmG.selectAll(".hm-rect")
     .data(heatmapData)
@@ -660,7 +647,7 @@ export async function locations(el, { data, lazy }) {
   container.html("");
 
   const rawLocs = data?.top_locations || (await lazy?.("top_locations")) || [];
-  const locs = rawLocs.slice(0, 25);
+  const locs = rawLocs.slice(0, 12); // 12 rows fit one 16:9 screen without an inner scroll
 
   const wrapper = container.append("div")
     .style("display", "flex")
@@ -671,7 +658,7 @@ export async function locations(el, { data, lazy }) {
 
   const header = wrapper.append("div");
   header.append("p").attr("class", "label").text("03 · WHERE");
-  header.append("h2").text("Top-25 High-Frequency Address Locations");
+  header.append("h2").text("The 12 busiest addresses");
   header.append("p")
     .attr("class", "caption")
     .style("margin-top", "var(--s-1)")
@@ -680,7 +667,7 @@ export async function locations(el, { data, lazy }) {
   const tableBox = wrapper.append("div")
     .style("flex", "1")
     .style("min-height", "0")
-    .style("overflow-y", "auto")
+    .style("overflow", "hidden")
     .style("border-top", "var(--rule)");
 
   const table = tableBox.append("table")

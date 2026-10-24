@@ -145,7 +145,7 @@ export async function pyramid(el, { data, lazy }) {
     .attr("x", width - margin.right - halfWidth / 2)
     .attr("y", margin.top - 12)
     .attr("text-anchor", "middle")
-    .attr("fill", "var(--signal)")
+    .attr("fill", "var(--bone)")
     .style("font-size", "var(--fs-small)")
     .style("font-family", "var(--font-mono)")
     .style("font-weight", "700")
@@ -211,9 +211,10 @@ export async function pyramid(el, { data, lazy }) {
     .attr("x", width - margin.right - halfWidth)
     .attr("height", yScale.bandwidth())
     .attr("width", d => Math.max(0, xRightScale(femaleData.get(d) || 0) - (width - margin.right - halfWidth)))
-    .attr("fill", "var(--signal)")
+    .attr("fill", "var(--bone-60)")
     .style("cursor", "pointer")
     .on("mouseover", function (event, d) {
+      d3.select(this).attr("fill", "var(--signal)");
       updateBanner(d, "Female");
 
       const cnt = femaleData.get(d) || 0;
@@ -231,6 +232,7 @@ export async function pyramid(el, { data, lazy }) {
         .style("top", (event.clientY - 28) + "px");
     })
     .on("mouseout", function () {
+      d3.select(this).attr("fill", "var(--bone-60)");
       updateBanner(null);
       tooltip.style("opacity", 0);
     });
@@ -509,7 +511,7 @@ export async function descent(el, { data, lazy }) {
     .style("background", "var(--surface)")
     .style("border", "var(--rule)")
     .style("position", "relative")
-    .style("overflow-y", "auto");
+    .style("overflow", "hidden");
 
   // Caveat Banner at bottom
   wrapper.append("p")
@@ -540,7 +542,9 @@ export async function descent(el, { data, lazy }) {
     const bbox = chartBox.node()?.getBoundingClientRect() || {};
     const width = bbox.width || 800;
     const rowHeight = 24;
-    const margin = { top: 15, right: 90, bottom: 25, left: 180 };
+    // Left margin fits the longest group name ("American Indian/Alaskan Native") at --fs-small.
+    const k = Math.max(1, window.innerWidth / 1280);
+    const margin = { top: 15, right: 130 * k, bottom: 25, left: 230 * k };
     const height = Math.max(bbox.height || 300, chartData.length * rowHeight + margin.top + margin.bottom);
 
     const svg = chartBox.append("svg")
