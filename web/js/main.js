@@ -1,76 +1,110 @@
-// Page foundation: data loading, hash sync, render-on-view.
-import * as d3 from "https://cdn.jsdelivr.net/npm/d3@7.9.0/+esm";
+/**
+ * LA Crime under NIBRS — Router, Intersection Observer & Single-Screen Wheel Lock
+ */
 
-const DATA_DIR = "data/processed/nibrs/";
-const EAGER = [
-  "kpi", "monthly_by_cat", "dow_by_cat", "area_summary", "area_by_cat",
-  "offense_hierarchy", "offense_cooccurrence", "offense_count_dist", "top_offenses",
-  "victim_type", "victim_age_sex", "victim_descent_by_cat", "weapon_class",
-  "outcome_by_cat", "outcome_funnel", "flags_by_area", "flags_monthly",
-  "report_lag_by_cat", "top_locations",
-];
-const LAZY = ["geo_grid", "geo_sample"];  // ~2.9 MB, fetched as #places approaches
+const loadedModules = new Map();
+const rawCache = new Map();
 
-// --- data ---
-const dataReady = Promise.all(EAGER.map((f) => d3.json(`${DATA_DIR}${f}.json`)))
-  .then((all) => Object.fromEntries(EAGER.map((f, i) => [f, all[i]])));
-
-const lazyCache = new Map();
-function lazy(name) {  // cached promise; screens call `await ctx.lazy("geo_grid")`
-  if (!lazyCache.has(name)) lazyCache.set(name, d3.json(`${DATA_DIR}${name}.json`));
-  return lazyCache.get(name);
-}
-
-// --- hash sync + chapter indicator ---
-const indicator = document.getElementById("chapter-indicator");
-const chapters = document.querySelectorAll("body > section[id]");
-// A chapter is "current" when it crosses the middle line of the viewport.
-const chapterObserver = new IntersectionObserver((entries) => {
-  for (const e of entries) {
-    if (!e.isIntersecting) continue;
-    const id = e.target.id;
-    if (location.hash !== `#${id}`) history.replaceState(null, "", `#${id}`);
-    indicator.textContent = e.target.dataset.title;
-  }
-}, { rootMargin: "-50% 0px -50% 0px" });
-chapters.forEach((c) => chapterObserver.observe(c));
-
-// Prefetch the geo files one screen before #places.
-new IntersectionObserver((entries, obs) => {
-  if (entries.some((e) => e.isIntersecting)) {
-    LAZY.forEach(lazy);
-    obs.disconnect();
-  }
-}, { rootMargin: "100% 0px" }).observe(document.getElementById("places"));
-
-// --- render on first view ---
-// Screen <div data-screen="x"> in <section id="c"> -> export `x` of charts/c.js, called once.
-const modules = new Map();
-function chapterModule(id) {
-  if (!modules.has(id)) modules.set(id, import(`./charts/${id}.js`));
-  return modules.get(id);
-}
-
-async function render(screen) {
-  const chapter = screen.closest("section").id;
-  const name = screen.dataset.screen;
+/**
+ * Lazy data fetcher pointing to processed NIBRS JSON
+ */
+export async function lazy(key) {
+  if (rawCache.has(key)) return rawCache.get(key);
   try {
-    const [mod, data] = await Promise.all([chapterModule(chapter), dataReady]);
-    if (typeof mod[name] !== "function") throw new Error(`charts/${chapter}.js has no export "${name}"`);
-    await mod[name](screen, { data, lazy });
+    const res = await fetch(`data/processed/nibrs/${key}.json`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const json = await res.json();
+    rawCache.set(key, json);
+    return json;
   } catch (err) {
-    console.error(`render ${chapter}/${name}:`, err);
-    screen.textContent = `Failed to render ${chapter}/${name}: ${err.message}`;
+    console.warn(`Failed lazy fetch for '${key}':`, err);
+    return [];
   }
 }
 
-const screenObserver = new IntersectionObserver((entries, obs) => {
-  for (const e of entries) {
-    if (!e.isIntersecting) continue;
-    obs.unobserve(e.target);
-    render(e.target);
-  }
-}, { threshold: 0.25 });
-document.querySelectorAll(".screen").forEach((s) => screenObserver.observe(s));
+async function loadScreen(chapterId, screenName, element) {
+  if (screenName === "title") return; // Rendered directly via index.html static markup
 
-dataReady.catch((err) => console.error("data load failed:", err));
+  try {
+    if (!loadedModules.has(chapterId)) {
+      const mod = await import(`./charts/${chapterId}.js`);
+      loadedModules.set(chapterId, mod);
+    }
+    const module = loadedModules.get(chapterId);
+    const renderFn = module[screenName] || module.default;
+
+    if (typeof renderFn === "function") {
+      await renderFn(element, { lazy });
+    }
+  } catch (err) {
+    console.error(`Error loading screen ${chapterId}/${screenName}:`, err);
+    element.innerHTML = `<p class="caption signal">Error loading visual: ${chapterId}/${screenName}</p>`;
+  }
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  const indicator = document.getElementById("chapter-indicator");
+  const screens = Array.from(document.querySelectorAll(".screen"));
+
+  // 1. Intersection Observer for Dynamic Rendering & Navigation Indicator
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        const section = entry.target.closest("section");
+        const chapterId = section ? section.id : "home";
+        const chapterTitle = section ? (section.dataset.title || chapterId) : "Overview";
+        const screenName = entry.target.dataset.screen || "kpi";
+
+        if (indicator) {
+          indicator.textContent = `${chapterTitle.toUpperCase()} • ${screenName.toUpperCase()}`;
+        }
+
+        if (!entry.target.dataset.rendered) {
+          entry.target.dataset.rendered = "true";
+          loadScreen(chapterId, screenName, entry.target);
+        }
+      }
+    });
+  }, { threshold: 0.3 });
+
+  screens.forEach(s => observer.observe(s));
+
+  // 2. Wheel Scroll Lock (Ensures 1 mouse wheel notch = exactly 1 page transition)
+  let isThrottled = false;
+
+  window.addEventListener("wheel", (e) => {
+    // If scrolling inside an internal scroll box (e.g. data table or category grid), allow native internal scroll
+    if (e.target.closest("table, .data-table, [style*='overflow-y: auto']")) {
+      const scrollBox = e.target.closest("[style*='overflow-y: auto']");
+      if (scrollBox) {
+        const atTop = scrollBox.scrollTop === 0 && e.deltaY < 0;
+        const atBottom = Math.abs(scrollBox.scrollHeight - scrollBox.scrollTop - scrollBox.clientHeight) < 2 && e.deltaY > 0;
+        if (!atTop && !atBottom) return; // Keep wheel scroll native inside scrollable panel
+      }
+    }
+
+    if (isThrottled) {
+      e.preventDefault();
+      return;
+    }
+
+    const direction = e.deltaY > 0 ? 1 : -1;
+    if (Math.abs(e.deltaY) < 15) return; // Ignore slight trackpad jitter
+
+    const currentScroll = window.scrollY || window.pageYOffset;
+    const vh = window.innerHeight;
+    const currentIndex = Math.round(currentScroll / vh);
+    const targetIndex = currentIndex + direction;
+
+    if (targetIndex >= 0 && targetIndex < screens.length) {
+      e.preventDefault();
+      isThrottled = true;
+
+      screens[targetIndex].scrollIntoView({ behavior: "smooth" });
+
+      setTimeout(() => {
+        isThrottled = false;
+      }, 650); // Throttle lock duration matching transition speed
+    }
+  }, { passive: false });
+});

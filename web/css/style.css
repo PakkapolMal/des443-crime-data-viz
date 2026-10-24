@@ -1,25 +1,42 @@
 @import url("tokens.css");
-/* Rules for every value: DESIGN.md. Use tokens only, no raw hex. */
 
-/* --- page mechanics --- */
-html { scroll-snap-type: y mandatory; background: var(--bg); }
+/* ==========================================================================
+   Page Mechanics & Strict Scroll Snap Engine
+   ========================================================================== */
+
+html {
+  scroll-snap-type: y mandatory;
+  background: var(--bg);
+}
+
 body {
   margin: 0;
   background: var(--bg);
   color: var(--bone);
   font: var(--fs-body) / var(--lh-body) var(--font-mono);
   -webkit-font-smoothing: antialiased;
+  overflow-x: clip;   /* clip does NOT create a scroll container */
+}
+
+/* Elevate .screen elements directly into html snap container context */
+section {
+  display: contents;
 }
 
 .screen {
   box-sizing: border-box;
-  height: 100vh;
+  width: 100%;
+  height: 100dvh; /* Dynamic viewport height support */
   scroll-snap-align: start;
-  overflow: hidden;          /* 16:9 desktop only: every screen fits one viewport, no inner scroll */
-  padding: var(--s-6);
+  scroll-snap-stop: always; /* Force snap stop at every screen */
+  overflow: hidden;
+  padding: var(--s-5) var(--s-6);
+  display: flex;
+  flex-direction: column;
+  position: relative;
 }
 
-/* --- type --- */
+/* --- Typography --- */
 h1, h2, h3 {
   margin: 0;
   font-family: var(--font-display);
@@ -33,21 +50,21 @@ h2 { font-size: var(--fs-h2); }
 h3 { font-size: var(--fs-h3); }
 p { margin: 0; }
 
-.label {                     /* uppercase mono: KPI labels, nav, axis titles */
+.label {
   font-size: var(--fs-label);
   text-transform: uppercase;
   letter-spacing: var(--tracking-label);
   color: var(--bone-60);
 }
 .caption { font-size: var(--fs-small); color: var(--bone-60); }
-.caveat { font-size: var(--fs-label); color: var(--bone-60); }   /* one line, links to #about */
+.caveat { font-size: var(--fs-label); color: var(--bone-60); }
 .num { font-variant-numeric: tabular-nums; }
-.signal { color: var(--signal); }   /* large/bold text only; max 2 red elements per viewport */
+.signal { color: var(--signal); }
 
 a { color: inherit; text-decoration: underline; text-decoration-color: var(--hairline); text-underline-offset: 0.2em; }
 a:hover { text-decoration-color: var(--bone); }
 
-/* --- controls --- */
+/* --- Controls --- */
 button {
   font: inherit;
   font-size: var(--fs-label);
@@ -61,13 +78,13 @@ button {
   cursor: pointer;
 }
 button:hover { color: var(--bone); }
-button[aria-pressed="true"] { color: var(--bone); border-color: var(--bone); }   /* toggle on: bone, red only when it is the active filter */
+button[aria-pressed="true"] { color: var(--bone); border-color: var(--bone); }
 button[disabled] { color: var(--bone-35); cursor: default; }
 .btn-primary { background: var(--signal-fill); border-color: var(--signal-fill); color: var(--bone); }
 
 :focus-visible { outline: 1px solid var(--bone); outline-offset: 2px; }
 
-/* --- shared chrome --- */
+/* --- Shared Fixed Navigation Chrome --- */
 #chapter-indicator {
   position: fixed;
   top: var(--s-3);
@@ -77,6 +94,7 @@ button[disabled] { color: var(--bone-35); cursor: default; }
   text-transform: uppercase;
   letter-spacing: var(--tracking-label);
   color: var(--bone-60);
+  z-index: 100;
 }
 .tooltip {
   position: fixed;
@@ -85,38 +103,88 @@ button[disabled] { color: var(--bone-35); cursor: default; }
   border: var(--rule);
   padding: var(--s-1) var(--s-2);
   font-size: var(--fs-small);
+  z-index: 1000;
 }
 
-/* --- charts --- */
+/* --- Charts General --- */
 svg { display: block; overflow: visible; }
 svg text { font-family: var(--font-mono); font-size: var(--fs-label); fill: var(--bone-60); }
 .axis .domain, .axis .tick line, .grid line { stroke: var(--hairline); }
-.draw-in { stroke-dasharray: 1; stroke-dashoffset: 1; animation: draw-in 1.6s ease-out forwards; }  /* needs pathLength="1" */
+.draw-in { stroke-dasharray: 1; stroke-dashoffset: 1; animation: draw-in 1.6s ease-out forwards; }
 @keyframes draw-in { to { stroke-dashoffset: 0; } }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0s !important; transition-duration: 0s !important; }
 }
 
-/* --- #home --- */
+/* --- Screen 1 & 2 Layout Rules --- */
 .title-screen { display: flex; flex-direction: column; justify-content: flex-end; gap: var(--s-4); }
 .title-screen .lede { max-width: 48ch; color: var(--bone-60); }
 .title-screen .scroll-cue { margin-top: var(--s-5); }
 
-.kpi-screen { display: flex; flex-direction: column; gap: var(--s-4); }
+.kpi-screen { 
+  display: flex; 
+  flex-direction: column; 
+  justify-content: space-between;
+  gap: var(--s-3); 
+  box-sizing: border-box;
+}
+
 .kpi-row {
   display: grid;
-  grid-template-columns: 1.6fr repeat(4, 1fr);   /* incidents needs room for 7 digits */
+  grid-template-columns: 1.4fr repeat(4, 1fr);
   border-top: var(--rule);
+  padding-top: var(--s-2);
+  gap: var(--s-2);
+  width: 100%;
+  box-sizing: border-box;
 }
-.kpi { padding: var(--s-3) var(--s-3) 0 0; display: flex; flex-direction: column; gap: var(--s-2); }
-.kpi + .kpi { border-left: var(--rule); padding-left: var(--s-3); }
-.kpi-value { font-size: var(--fs-stat); font-weight: 700; line-height: 1; }
-.trend { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: var(--s-2); }
-.trend-plot { flex: 1; min-height: 0; }
-.footer { display: flex; justify-content: space-between; border-top: var(--rule); padding-top: var(--s-2); }
 
-/* Narrow-screen fallback: a notice, not a layout. */
+.kpi { 
+  padding: var(--s-2) var(--s-2) 0 0; 
+  display: flex; 
+  flex-direction: column; 
+  gap: var(--s-1); 
+  min-width: 0;
+  overflow: hidden;
+}
+
+.kpi + .kpi { border-left: var(--rule); padding-left: var(--s-2); }
+
+.kpi-value { 
+  font-size: clamp(26px, 2.5vw, 48px); 
+  font-weight: 700; 
+  line-height: 1; 
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.trend { 
+  flex: 1; 
+  min-height: 0; 
+  display: flex; 
+  flex-direction: column; 
+  gap: var(--s-1); 
+}
+
+.trend-plot { 
+  flex: 1; 
+  min-height: 0; 
+  position: relative;
+  width: 100%;
+}
+
+.footer { 
+  display: flex; 
+  justify-content: space-between; 
+  align-items: center;
+  border-top: var(--rule); 
+  padding-top: var(--s-2); 
+  margin-top: auto;
+}
+
+/* Narrow-screen fallback */
 @media (max-width: 1023px) {
   body > * { display: none; }
   body::before { content: "Best viewed on a desktop (16:9)."; display: block; padding: var(--s-3); }

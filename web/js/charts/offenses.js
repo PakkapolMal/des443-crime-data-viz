@@ -7,29 +7,21 @@
 import * as d3 from "https://cdn.jsdelivr.net/npm/d3@7.9.0/+esm";
 
 /**
- * Screen 1: Offense Hierarchy Treemap
+ * Screen 1: NIBRS Offense Classification Hierarchy Treemap
  */
 export async function hierarchy(el, { data, lazy }) {
   const container = d3.select(el);
   container.html("");
 
-  const rawHierarchy = data?.offense_hierarchy || await lazy("offense_hierarchy");
+  const rawHierarchy = data?.offense_hierarchy || (await lazy?.("offense_hierarchy")) || [];
 
-  let tooltip = d3.select("body").select(".chart-tooltip");
+  // Global Tooltip
+  let tooltip = d3.select("body").select("#tooltip");
   if (tooltip.empty()) {
     tooltip = d3.select("body").append("div")
-      .attr("class", "chart-tooltip")
-      .style("position", "absolute")
-      .style("background", "var(--bg-card, #0f172a)")
-      .style("border", "1px solid var(--accent, #38bdf8)")
-      .style("color", "var(--text, #f8fafc)")
-      .style("padding", "0.45rem 0.7rem")
-      .style("border-radius", "6px")
-      .style("font-size", "0.75rem")
-      .style("pointer-events", "none")
-      .style("opacity", 0)
-      .style("z-index", "1000")
-      .style("box-shadow", "0 10px 25px -5px rgba(0,0,0,0.6)");
+      .attr("id", "tooltip")
+      .attr("class", "tooltip")
+      .style("opacity", 0);
   }
 
   const wrapper = container.append("div")
@@ -37,56 +29,76 @@ export async function hierarchy(el, { data, lazy }) {
     .style("flex-direction", "column")
     .style("width", "100%")
     .style("height", "100%")
-    .style("padding", "1.25rem 1.75rem")
-    .style("box-sizing", "border-box");
+    .style("gap", "var(--s-2)");
 
-  // Header & Controls
+  // Header
   const header = wrapper.append("div")
     .style("display", "flex")
     .style("justify-content", "space-between")
-    .style("align-items", "flex-end")
-    .style("margin-bottom", "0.75rem");
+    .style("align-items", "flex-end");
 
   const titleGroup = header.append("div");
-  titleGroup.append("h2")
-    .style("margin", "0 0 0.2rem 0")
-    .style("font-size", "1.4rem")
-    .style("color", "var(--text)")
-    .text("NIBRS Offense Classification Hierarchy");
-
+  titleGroup.append("p").attr("class", "label").text("05 · OFFENSES");
+  titleGroup.append("h2").text("NIBRS Offense Classification Hierarchy");
   titleGroup.append("p")
-    .style("margin", "0")
-    .style("font-size", "0.8rem")
-    .style("color", "var(--muted)")
+    .attr("class", "caption")
+    .style("margin-top", "var(--s-1)")
     .text("Nested proportions of top crime categories and specific offense classifications.");
 
-  const legendBox = header.append("div")
+  // Inspector Banner
+  const statsBanner = wrapper.append("div")
+    .style("background", "var(--surface)")
+    .style("border", "var(--rule)")
+    .style("padding", "var(--s-2) var(--s-3)")
     .style("display", "flex")
-    .style("gap", "0.75rem")
-    .style("flex-wrap", "wrap")
-    .style("align-items", "center");
+    .style("justify-content", "space-between")
+    .style("align-items", "center")
+    .style("font-family", "var(--font-mono)")
+    .style("font-size", "var(--fs-small)");
+
+  function updateBanner(d) {
+    if (!d) {
+      statsBanner.html(`
+        <span class="label">OFFENSE INSPECTOR:</span>
+        <span style="color:var(--bone-60);">Hover over any cell in the treemap to inspect offense volume and share.</span>
+      `);
+    } else {
+      const topCategoryNode = d.ancestors().find(a => a.depth === 1);
+      const topCategory = topCategoryNode ? (topCategoryNode.data.name || topCategoryNode.data.category || "General") : "General";
+      const name = d.data.name || d.data.offense || d.data.label || "Offense";
+      const share = ((d.value / (root.value || 1)) * 100).toFixed(1);
+
+      statsBanner.html(`
+        <div>
+          <span class="label">OFFENSE:</span>
+          <strong style="color:var(--bone); margin-left:4px;">${name.toUpperCase()}</strong>
+          <span style="color:var(--bone-60); margin-left:12px;">Category: ${topCategory}</span>
+        </div>
+        <div>
+          <span class="label">VOLUME:</span>
+          <strong class="num" style="margin-left:4px; color:var(--bone);">${d3.format(",")(d.value)}</strong>
+          <span class="label" style="margin-left:12px;">SHARE:</span>
+          <strong class="num signal" style="margin-left:4px;">${share}%</strong>
+        </div>
+      `);
+    }
+  }
 
   const chartBox = wrapper.append("div")
     .style("flex", "1")
-    .style("background", "#070b14")
-    .style("border", "1px solid var(--border, #334155)")
-    .style("border-radius", "8px")
+    .style("min-height", "0")
     .style("position", "relative")
+    .style("background", "var(--surface)")
+    .style("border", "var(--rule)")
     .style("overflow", "hidden");
 
-  const width = chartBox.node().clientWidth || 850;
-  const height = chartBox.node().clientHeight || 420;
+  const bbox = chartBox.node()?.getBoundingClientRect() || {};
+  const width = bbox.width || 850;
+  const height = bbox.height || 420;
 
-  // Helper to safely extract node label string
-  const getNodeName = (d) => {
-    if (!d) return "Unknown";
-    return String(d.name || d.offense || d.category || d.label || "Offense");
-  };
+  const getNodeName = (d) => String(d?.name || d?.offense || d?.category || d?.label || "Offense");
 
-  const rootChildren = Array.isArray(rawHierarchy) 
-    ? rawHierarchy 
-    : (rawHierarchy?.children || []);
-
+  const rootChildren = Array.isArray(rawHierarchy) ? rawHierarchy : (rawHierarchy?.children || []);
   const rootData = { name: "All Crimes", children: rootChildren };
 
   const root = d3.hierarchy(rootData)
@@ -94,59 +106,104 @@ export async function hierarchy(el, { data, lazy }) {
     .sort((a, b) => b.value - a.value);
 
   const totalValue = root.value || 1;
+  updateBanner(null);
 
-  d3.treemap()
+  // Check if dataset has multi-level parent groups
+  const hasCategoryGroups = root.children && root.children.some(d => d.children && d.children.length > 0);
+
+  const treemapLayout = d3.treemap()
     .size([width, height])
     .paddingOuter(3)
-    .paddingTop(2)
-    .paddingInner(2)(root);
+    .paddingInner(2)
+    .round(true);
 
-  // Distinct Unique Category Names for Color Scale & Legend
+  if (hasCategoryGroups) {
+    treemapLayout.paddingTop(d => (d.depth === 1 && d.children) ? 22 : 2);
+  } else {
+    treemapLayout.paddingTop(2);
+  }
+
+  treemapLayout(root);
+
   const rawCatNames = root.children ? root.children.map(d => getNodeName(d.data)) : [];
   const categoryNames = Array.from(new Set(rawCatNames));
 
+  const palette = [
+    "#38bdf8", "#f43f5e", "#fbbf24", "#34d399", "#a78bfa", 
+    "#fb923c", "#2dd4bf", "#f472b6", "#818cf8", "#a3e635"
+  ];
+
   const colorScale = d3.scaleOrdinal()
     .domain(categoryNames)
-    .range(["#0284c7", "#d97706", "#e11d48", "#059669", "#7c3aed", "#ea580c", "#0891b2", "#db2777", "#6d28d9"]);
+    .range(palette);
 
-  // Render Unique Category Legend
-  categoryNames.slice(0, 6).forEach(cat => {
-    const item = legendBox.append("div").style("display", "flex").style("align-items", "center").style("gap", "0.35rem");
-    item.append("span")
-      .style("width", "10px")
-      .style("height", "10px")
-      .style("border-radius", "2px")
-      .style("background", colorScale(cat));
-    item.append("span")
-      .style("font-size", "0.72rem")
-      .style("color", "var(--text)")
-      .style("font-weight", "500")
-      .text(cat);
-  });
+  const svg = chartBox.append("svg")
+    .attr("width", "100%")
+    .attr("height", "100%")
+    .attr("viewBox", `0 0 ${width} ${height}`);
 
-  const svg = chartBox.append("svg").attr("width", width).attr("height", height);
   const defs = svg.append("defs");
 
-  // Category Cluster Outlines
-  if (root.children) {
+  // Render Parent Headers ONLY for nodes that are true multi-child containers
+  const parentNodes = root.descendants().filter(d => d.depth === 1 && d.children && d.children.length > 0);
+
+  if (parentNodes.length > 0) {
     const parents = svg.selectAll("g.parent")
-      .data(root.children)
+      .data(parentNodes)
       .enter()
       .append("g")
       .attr("class", "parent");
 
+    // Container border
     parents.append("rect")
       .attr("x", d => d.x0)
       .attr("y", d => d.y0)
       .attr("width", d => Math.max(0, d.x1 - d.x0))
       .attr("height", d => Math.max(0, d.y1 - d.y0))
-      .attr("fill", "none")
+      .attr("fill", "var(--bg)")
+      .attr("fill-opacity", 0.4)
       .attr("stroke", d => colorScale(getNodeName(d.data)))
-      .attr("stroke-width", 1.5)
-      .attr("opacity", 0.5);
+      .attr("stroke-width", 1)
+      .attr("rx", 2);
+
+    // Dedicated Header Bar
+    parents.append("rect")
+      .attr("x", d => d.x0)
+      .attr("y", d => d.y0)
+      .attr("width", d => Math.max(0, d.x1 - d.x0))
+      .attr("height", 20)
+      .attr("fill", "var(--surface)")
+      .attr("fill-opacity", 0.95);
+
+    // Header Clip-Path
+    parents.each(function (d, i) {
+      const headerW = Math.max(0, d.x1 - d.x0);
+      const clipId = `parent-clip-${i}`;
+      defs.append("clipPath")
+        .attr("id", clipId)
+        .append("rect")
+        .attr("x", d.x0)
+        .attr("y", d.y0)
+        .attr("width", headerW)
+        .attr("height", 20);
+
+      d3.select(this).attr("clip-path", `url(#${clipId})`);
+    });
+
+    // Parent Header Title
+    parents.append("text")
+      .attr("x", d => d.x0 + 6)
+      .attr("y", d => d.y0 + 14)
+      .attr("fill", d => colorScale(getNodeName(d.data)))
+      .style("font-family", "var(--font-mono)")
+      .style("font-size", "10px")
+      .style("font-weight", "700")
+      .style("letter-spacing", "0.05em")
+      .style("pointer-events", "none")
+      .text(d => getNodeName(d.data).toUpperCase());
   }
 
-  // Leaf Nodes with Clip Paths
+  // Render Leaf Nodes
   const leaves = svg.selectAll("g.leaf")
     .data(root.leaves())
     .enter()
@@ -159,12 +216,12 @@ export async function hierarchy(el, { data, lazy }) {
     const boxH = Math.max(0, d.y1 - d.y0);
     const clipId = `leaf-clip-${i}`;
 
-    // Define clipPath for each cell to prevent text overflow
     defs.append("clipPath")
       .attr("id", clipId)
       .append("rect")
       .attr("width", boxW)
-      .attr("height", boxH);
+      .attr("height", boxH)
+      .attr("rx", 2);
 
     d3.select(this).attr("clip-path", `url(#${clipId})`);
   });
@@ -177,89 +234,107 @@ export async function hierarchy(el, { data, lazy }) {
       const topCategory = topCategoryNode ? getNodeName(topCategoryNode.data) : getNodeName(d.data);
       return colorScale(topCategory);
     })
-    .attr("opacity", 0.85)
+    .attr("fill-opacity", 0.35)
+    .attr("stroke", d => {
+      const topCategoryNode = d.ancestors().find(a => a.depth === 1);
+      const topCategory = topCategoryNode ? getNodeName(topCategoryNode.data) : getNodeName(d.data);
+      return colorScale(topCategory);
+    })
+    .attr("stroke-width", 1)
     .attr("rx", 2)
     .style("cursor", "pointer")
     .on("mouseover", function (event, d) {
-      d3.select(this).attr("opacity", 1).attr("stroke", "#ffffff").attr("stroke-width", 1.5);
+      d3.select(this)
+        .attr("fill-opacity", 0.85)
+        .attr("stroke", "var(--bone)")
+        .attr("stroke-width", 1.5);
+      
+      updateBanner(d);
+
       const topCategoryNode = d.ancestors().find(a => a.depth === 1);
       const topCategory = topCategoryNode ? getNodeName(topCategoryNode.data) : "N/A";
       const share = ((d.value / totalValue) * 100).toFixed(1);
+
       tooltip.html(`
-        <strong>${getNodeName(d.data)}</strong><br/>
+        <strong style="color:var(--bone);">${getNodeName(d.data)}</strong><br/>
         Category: <em>${topCategory}</em><br/>
         Volume: <strong>${d3.format(",")(d.value)}</strong><br/>
-        Share of Total: <strong>${share}%</strong>
+        Share of Total: <strong style="color:var(--signal);">${share}%</strong>
       `).style("opacity", 1);
     })
-    .on("mousemove", event => tooltip.style("left", (event.pageX + 12) + "px").style("top", (event.pageY - 28) + "px"))
+    .on("mousemove", event => {
+      tooltip
+        .style("left", (event.clientX + 14) + "px")
+        .style("top", (event.clientY - 28) + "px");
+    })
     .on("mouseout", function () {
-      d3.select(this).attr("opacity", 0.85).attr("stroke", "none");
+      d3.select(this)
+        .attr("fill-opacity", 0.35)
+        .attr("stroke", d => {
+          const topCategoryNode = d.ancestors().find(a => a.depth === 1);
+          const topCategory = topCategoryNode ? getNodeName(topCategoryNode.data) : getNodeName(d.data);
+          return colorScale(topCategory);
+        })
+        .attr("stroke-width", 1);
+
+      updateBanner(null);
       tooltip.style("opacity", 0);
     });
 
-  // Multi-line Clean Text Labels inside Cells
+  // Clean Single-Layer Text Labels inside Leaf Tiles
   leaves.each(function (d) {
     const boxW = d.x1 - d.x0;
     const boxH = d.y1 - d.y0;
 
-    // Only render text if box is large enough to be readable
-    if (boxW >= 42 && boxH >= 22) {
-      const name = getNodeName(d.data);
+    if (boxW >= 32 && boxH >= 16) {
+      const leafName = getNodeName(d.data);
       const share = ((d.value / totalValue) * 100).toFixed(1);
+      const formattedVal = d3.format("~s")(d.value);
 
       const text = d3.select(this).append("text")
         .attr("x", 5)
         .attr("y", 13)
-        .attr("fill", "#ffffff")
-        .style("font-family", "system-ui, -apple-system, sans-serif")
-        .style("font-size", boxW < 65 ? "0.6rem" : "0.68rem")
+        .attr("fill", "var(--bone)")
+        .style("font-family", "var(--font-mono)")
+        .style("font-size", boxW < 60 ? "8px" : "9.5px")
         .style("font-weight", "600")
-        .style("pointer-events", "none")
-        .style("text-shadow", "0 1px 3px rgba(0,0,0,0.9)");
+        .style("pointer-events", "none");
 
       // Line 1: Offense Name
       text.append("tspan")
         .attr("x", 5)
-        .text(name);
+        .text(leafName);
 
-      // Line 2: Count & Percentage Share
-      if (boxH >= 36) {
+      // Line 2: Volume & Share
+      if (boxH >= 28) {
         text.append("tspan")
           .attr("x", 5)
           .attr("dy", "1.15em")
-          .attr("fill", "#e2e8f0")
-          .style("font-size", "0.58rem")
+          .attr("fill", "var(--bone-60)")
+          .style("font-size", "8px")
           .style("font-weight", "500")
-          .text(`${d3.format("~s")(d.value)} (${share}%)`);
+          .text(`${formattedVal} (${share}%)`);
       }
     }
   });
 }
 
 /**
- * Screen 2: Offense Co-occurrence Matrix
+ * Screen 2: Responsive Offense Co-occurrence Matrix
  */
 export async function cooccurrence(el, { data, lazy }) {
   const container = d3.select(el);
   container.html("");
 
-  const rawData = data?.offense_cooccurrence || await lazy("offense_cooccurrence");
+  const rawData = data?.offense_cooccurrence || (await lazy?.("offense_cooccurrence")) || [];
 
-  let tooltip = d3.select("body").select(".chart-tooltip");
+  // Global Tooltip
+  let tooltip = d3.select("body").select("#tooltip");
   if (tooltip.empty()) {
     tooltip = d3.select("body").append("div")
-      .attr("class", "chart-tooltip")
-      .style("position", "absolute")
-      .style("background", "var(--bg-card, #0f172a)")
-      .style("border", "1px solid var(--accent, #38bdf8)")
-      .style("color", "var(--text, #f8fafc)")
-      .style("padding", "0.4rem 0.65rem")
-      .style("border-radius", "6px")
-      .style("font-size", "0.75rem")
-      .style("pointer-events", "none")
-      .style("opacity", 0)
-      .style("z-index", "1000");
+      .attr("id", "tooltip")
+      .attr("class", "tooltip")
+      .style("opacity", 0);
   }
 
   const wrapper = container.append("div")
@@ -267,48 +342,85 @@ export async function cooccurrence(el, { data, lazy }) {
     .style("flex-direction", "column")
     .style("width", "100%")
     .style("height", "100%")
-    .style("padding", "1.25rem 1.75rem")
-    .style("box-sizing", "border-box");
+    .style("gap", "var(--s-2)");
 
-  const header = wrapper.append("div").style("margin-bottom", "0.75rem");
-  header.append("h2")
-    .style("margin", "0 0 0.2rem 0")
-    .style("font-size", "1.4rem")
-    .style("color", "var(--text)")
-    .text("Offense Category Co-occurrence Matrix");
-
+  const header = wrapper.append("div");
+  header.append("p").attr("class", "label").text("05 · OFFENSES");
+  header.append("h2").text("Offense Category Co-occurrence Matrix");
   header.append("p")
-    .style("margin", "0")
-    .style("font-size", "0.8rem")
-    .style("color", "var(--muted)")
-    .text("Frequency of crime categories reported together in a single incident.");
+    .attr("class", "caption")
+    .style("margin-top", "var(--s-1)")
+    .text("Frequency of crime categories reported together within a single incident report.");
+
+  const statsBanner = wrapper.append("div")
+    .style("background", "var(--surface)")
+    .style("border", "var(--rule)")
+    .style("padding", "var(--s-2) var(--s-3)")
+    .style("display", "flex")
+    .style("justify-content", "space-between")
+    .style("align-items", "center")
+    .style("font-family", "var(--font-mono)")
+    .style("font-size", "var(--fs-small)");
+
+  function updateBanner(d) {
+    if (!d) {
+      statsBanner.html(`
+        <span class="label">PAIR INSPECTOR:</span>
+        <span style="color:var(--bone-60);">Hover over any matrix cell to inspect co-occurrence pairing frequency.</span>
+      `);
+    } else {
+      const src = d.source || d.cat1 || "Category A";
+      const tgt = d.target || d.cat2 || "Category B";
+      const val = Number(d.value || d.count || 0);
+
+      statsBanner.html(`
+        <div>
+          <span class="label">CO-OCCURRENCE PAIR:</span>
+          <strong style="color:var(--bone); margin-left:4px;">${src} + ${tgt}</strong>
+        </div>
+        <div>
+          <span class="label">SHARED INCIDENTS:</span>
+          <strong class="num signal" style="margin-left:4px;">${d3.format(",")(val)}</strong>
+        </div>
+      `);
+    }
+  }
+  updateBanner(null);
 
   const chartBox = wrapper.append("div")
     .style("flex", "1")
-    .style("background", "var(--bg-card, #1e293b)")
-    .style("border", "1px solid var(--border, #334155)")
-    .style("border-radius", "8px")
-    .style("padding", "1rem")
+    .style("min-height", "0")
+    .style("background", "var(--surface)")
+    .style("border", "var(--rule)")
     .style("position", "relative")
-    .style("overflow", "auto");
+    .style("overflow", "hidden");
 
   const items = Array.from(new Set([
     ...rawData.map(d => String(d.source || d.cat1 || "")),
     ...rawData.map(d => String(d.target || d.cat2 || ""))
   ])).filter(Boolean).sort();
 
-  const width = Math.max(chartBox.node().clientWidth || 800, items.length * 36 + 180);
-  const height = items.length * 32 + 180;
-  const margin = { top: 120, right: 30, bottom: 30, left: 140 };
+  const bbox = chartBox.node()?.getBoundingClientRect() || {};
+  const width = bbox.width || 900;
+  const height = bbox.height || 450;
+  
+  const margin = { top: 120, right: 30, bottom: 20, left: 165 };
 
-  const svg = chartBox.append("svg").attr("width", width).attr("height", height);
+  const innerW = Math.max(100, width - margin.left - margin.right);
+  const innerH = Math.max(100, height - margin.top - margin.bottom);
+
+  const svg = chartBox.append("svg")
+    .attr("width", "100%")
+    .attr("height", "100%")
+    .attr("viewBox", `0 0 ${width} ${height}`);
+
   const g = svg.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
 
-  const xScale = d3.scaleBand().domain(items).range([0, items.length * 32]).padding(0.08);
-  const yScale = d3.scaleBand().domain(items).range([0, items.length * 32]).padding(0.08);
+  const xScale = d3.scaleBand().domain(items).range([0, innerW]).padding(0.08);
+  const yScale = d3.scaleBand().domain(items).range([0, innerH]).padding(0.08);
 
   const maxVal = d3.max(rawData, d => Number(d.value || d.count || 0)) || 100;
-  const colorScale = d3.scaleSequential(d3.interpolateBlues).domain([0, maxVal]);
+  const colorScale = d3.scaleSequential(d3.interpolateReds).domain([0, maxVal]);
 
   // X Axis
   g.append("g")
@@ -320,8 +432,9 @@ export async function cooccurrence(el, { data, lazy }) {
     .attr("y", -10)
     .attr("text-anchor", "start")
     .attr("transform", d => `rotate(-45, ${xScale(d) + xScale.bandwidth() / 2}, -10)`)
-    .attr("fill", "var(--text)")
-    .style("font-size", "0.72rem")
+    .attr("fill", "var(--bone)")
+    .style("font-size", "var(--fs-label)")
+    .style("font-family", "var(--font-mono)")
     .text(d => d);
 
   // Y Axis
@@ -330,11 +443,12 @@ export async function cooccurrence(el, { data, lazy }) {
     .data(items)
     .enter()
     .append("text")
-    .attr("x", -8)
+    .attr("x", -10)
     .attr("y", d => yScale(d) + yScale.bandwidth() / 2 + 3)
     .attr("text-anchor", "end")
-    .attr("fill", "var(--text)")
-    .style("font-size", "0.75rem")
+    .attr("fill", "var(--bone-60)")
+    .style("font-size", "var(--fs-small)")
+    .style("font-family", "var(--font-mono)")
     .text(d => d);
 
   // Matrix Rectangles
@@ -347,41 +461,42 @@ export async function cooccurrence(el, { data, lazy }) {
     .attr("y", d => yScale(String(d.source || d.cat1 || "")))
     .attr("width", xScale.bandwidth())
     .attr("height", yScale.bandwidth())
-    .attr("fill", d => colorScale(Number(d.value || d.count || 0)))
-    .attr("rx", 2)
+    .attr("fill", d => Number(d.value || d.count || 0) === 0 ? "var(--surface)" : colorScale(Number(d.value || d.count || 0)))
     .style("cursor", "pointer")
     .on("mouseover", (event, d) => {
+      updateBanner(d);
       tooltip.html(`
-        <strong>Co-occurrence Pair</strong><br/>
+        <strong style="color:var(--bone);">Co-occurrence Pair</strong><br/>
         ${d.source || d.cat1} + ${d.target || d.cat2}<br/>
-        Count: <strong>${d3.format(",")(d.value || d.count)}</strong>
+        Incidents: <strong style="color:var(--signal);">${d3.format(",")(Number(d.value || d.count || 0))}</strong>
       `).style("opacity", 1);
     })
-    .on("mousemove", event => tooltip.style("left", (event.pageX + 12) + "px").style("top", (event.pageY - 28) + "px"))
-    .on("mouseout", () => tooltip.style("opacity", 0));
+    .on("mousemove", event => {
+      tooltip
+        .style("left", (event.clientX + 14) + "px")
+        .style("top", (event.clientY - 28) + "px");
+    })
+    .on("mouseout", () => {
+      updateBanner(null);
+      tooltip.style("opacity", 0);
+    });
 }
 
 /**
- * Screen 3: Multi-Offense Distribution Per Incident
+ * Screen 3: Offense Count Distribution Per Incident
  */
 export async function distribution(el, { data, lazy }) {
   const container = d3.select(el);
   container.html("");
 
-  const rawData = data?.offense_count_dist || await lazy("offense_count_dist");
+  const rawData = data?.offense_count_dist || (await lazy?.("offense_count_dist")) || [];
 
-  let tooltip = d3.select("body").select(".chart-tooltip");
+  // Global Tooltip
+  let tooltip = d3.select("body").select("#tooltip");
   if (tooltip.empty()) {
     tooltip = d3.select("body").append("div")
-      .attr("class", "chart-tooltip")
-      .style("position", "absolute")
-      .style("background", "var(--bg-card, #0f172a)")
-      .style("border", "1px solid var(--accent, #38bdf8)")
-      .style("color", "var(--text, #f8fafc)")
-      .style("padding", "0.4rem 0.65rem")
-      .style("border-radius", "6px")
-      .style("font-size", "0.75rem")
-      .style("pointer-events", "none")
+      .attr("id", "tooltip")
+      .attr("class", "tooltip")
       .style("opacity", 0);
   }
 
@@ -390,35 +505,71 @@ export async function distribution(el, { data, lazy }) {
     .style("flex-direction", "column")
     .style("width", "100%")
     .style("height", "100%")
-    .style("padding", "1.25rem 1.75rem")
-    .style("box-sizing", "border-box");
+    .style("gap", "var(--s-2)");
 
-  const header = wrapper.append("div").style("margin-bottom", "0.75rem");
-  header.append("h2")
-    .style("margin", "0 0 0.2rem 0")
-    .style("font-size", "1.4rem")
-    .style("color", "var(--text)")
-    .text("Offenses Per Incident Report");
-
+  const header = wrapper.append("div");
+  header.append("p").attr("class", "label").text("05 · OFFENSES");
+  header.append("h2").text("Offenses Per Incident Report");
   header.append("p")
-    .style("margin", "0")
-    .style("font-size", "0.8rem")
-    .style("color", "var(--muted)")
-    .text("Distribution of single vs multiple offense counts per incident.");
+    .attr("class", "caption")
+    .style("margin-top", "var(--s-1)")
+    .text("Distribution of single vs multiple offense counts recorded per incident.");
+
+  const statsBanner = wrapper.append("div")
+    .style("background", "var(--surface)")
+    .style("border", "var(--rule)")
+    .style("padding", "var(--s-2) var(--s-3)")
+    .style("display", "flex")
+    .style("justify-content", "space-between")
+    .style("align-items", "center")
+    .style("font-family", "var(--font-mono)")
+    .style("font-size", "var(--fs-small)");
+
+  const totalIncidents = d3.sum(rawData, d => Number(d.count || 0)) || 1;
+
+  function updateBanner(d) {
+    if (!d) {
+      statsBanner.html(`
+        <span class="label">DISTRIBUTION INSPECTOR:</span>
+        <span style="color:var(--bone-60);">Hover over any bar to inspect offense count shares.</span>
+      `);
+    } else {
+      const cnt = Number(d.offense_count || 1);
+      const val = Number(d.count || 0);
+      const share = ((val / totalIncidents) * 100).toFixed(1);
+
+      statsBanner.html(`
+        <div>
+          <span class="label">OFFENSE COUNT:</span>
+          <strong style="color:var(--bone); margin-left:4px;">${cnt} Offense${cnt > 1 ? 's' : ''}</strong>
+        </div>
+        <div>
+          <span class="label">INCIDENTS:</span>
+          <strong class="num" style="margin-left:4px; color:var(--bone);">${d3.format(",")(val)}</strong>
+          <span class="label" style="margin-left:12px;">SHARE:</span>
+          <strong class="num signal" style="margin-left:4px;">${share}%</strong>
+        </div>
+      `);
+    }
+  }
+  updateBanner(null);
 
   const chartBox = wrapper.append("div")
     .style("flex", "1")
-    .style("background", "var(--bg-card, #1e293b)")
-    .style("border", "1px solid var(--border, #334155)")
-    .style("border-radius", "8px")
-    .style("padding", "1rem")
+    .style("min-height", "0")
+    .style("background", "var(--surface)")
+    .style("border", "var(--rule)")
     .style("position", "relative");
 
-  const width = chartBox.node().clientWidth || 800;
-  const height = chartBox.node().clientHeight || 360;
-  const margin = { top: 25, right: 30, bottom: 45, left: 60 };
+  const bbox = chartBox.node()?.getBoundingClientRect() || {};
+  const width = bbox.width || 800;
+  const height = bbox.height || 360;
+  const margin = { top: 25, right: 30, bottom: 45, left: 65 };
 
-  const svg = chartBox.append("svg").attr("width", width).attr("height", height);
+  const svg = chartBox.append("svg")
+    .attr("width", "100%")
+    .attr("height", "100%")
+    .attr("viewBox", `0 0 ${width} ${height}`);
 
   const xScale = d3.scaleBand()
     .domain(rawData.map(d => `${d.offense_count} Offense${d.offense_count > 1 ? 's' : ''}`))
@@ -430,25 +581,16 @@ export async function distribution(el, { data, lazy }) {
     .domain([0, maxVal * 1.1])
     .range([height - margin.bottom, margin.top]);
 
-  // X Axis
   svg.append("g")
+    .attr("class", "axis")
     .attr("transform", `translate(0, ${height - margin.bottom})`)
-    .call(d3.axisBottom(xScale))
-    .call(g => g.select(".domain").attr("stroke", "var(--border)"))
-    .selectAll("text")
-    .attr("fill", "var(--text)")
-    .style("font-size", "0.8rem");
+    .call(d3.axisBottom(xScale));
 
-  // Y Axis
   svg.append("g")
+    .attr("class", "axis")
     .attr("transform", `translate(${margin.left}, 0)`)
-    .call(d3.axisLeft(yScale).ticks(6).tickFormat(d3.format("~s")))
-    .call(g => g.select(".domain").attr("stroke", "var(--border)"))
-    .selectAll("text")
-    .attr("fill", "var(--muted)")
-    .style("font-size", "0.75rem");
+    .call(d3.axisLeft(yScale).ticks(6).tickFormat(d3.format("~s")));
 
-  // Bars
   svg.selectAll(".dist-bar")
     .data(rawData)
     .enter()
@@ -458,15 +600,29 @@ export async function distribution(el, { data, lazy }) {
     .attr("y", d => yScale(Number(d.count || 0)))
     .attr("width", xScale.bandwidth())
     .attr("height", d => Math.max(0, height - margin.bottom - yScale(Number(d.count || 0))))
-    .attr("fill", "var(--accent, #38bdf8)")
-    .attr("rx", 4)
+    .attr("fill", "var(--bone)")
     .style("cursor", "pointer")
-    .on("mouseover", (event, d) => {
+    .on("mouseover", function (event, d) {
+      d3.select(this).attr("fill", "var(--signal)");
+      updateBanner(d);
+
+      const val = Number(d.count || 0);
+      const share = ((val / totalIncidents) * 100).toFixed(1);
+
       tooltip.html(`
-        <strong>${d.offense_count} Offense(s)</strong><br/>
-        Incident Count: <strong>${d3.format(",")(d.count)}</strong>
+        <strong style="color:var(--bone);">${d.offense_count} Offense(s) Per Incident</strong><br/>
+        Incident Count: <strong>${d3.format(",")(val)}</strong><br/>
+        Share of Total: <strong style="color:var(--signal);">${share}%</strong>
       `).style("opacity", 1);
     })
-    .on("mousemove", event => tooltip.style("left", (event.pageX + 12) + "px").style("top", (event.pageY - 28) + "px"))
-    .on("mouseout", () => tooltip.style("opacity", 0));
+    .on("mousemove", event => {
+      tooltip
+        .style("left", (event.clientX + 14) + "px")
+        .style("top", (event.clientY - 28) + "px");
+    })
+    .on("mouseout", function () {
+      d3.select(this).attr("fill", "var(--bone)");
+      updateBanner(null);
+      tooltip.style("opacity", 0);
+    });
 }
