@@ -5,7 +5,7 @@
  */
 
 import * as d3 from "https://cdn.jsdelivr.net/npm/d3@7.9.0/+esm";
-import { CATEGORIES, ramp } from "../util.js";
+import { CATEGORIES, ramp, VIOLENT_CATEGORIES } from "../util.js";
 
 /**
  * Screen 1: NIBRS Offense Classification Hierarchy Treemap
@@ -44,7 +44,7 @@ export async function hierarchy(el, { data, lazy }) {
   titleGroup.append("p")
     .attr("class", "caption")
     .style("margin-top", "var(--s-1)")
-    .text("Nested proportions of top crime categories and specific offense classifications.");
+    .text("Tile area = number of offenses. One report can list several offenses, so shares here are of offenses, not reports.");
 
   // Inspector Banner
   const statsBanner = wrapper.append("div")
@@ -64,7 +64,7 @@ export async function hierarchy(el, { data, lazy }) {
         <span style="color:var(--bone-60);">Hover over any cell in the treemap to inspect offense volume and share.</span>
       `);
     } else {
-      const topCategoryNode = d.ancestors().find(a => a.depth === 1);
+      const topCategoryNode = d.ancestors().find(a => a.depth === 2);
       const topCategory = topCategoryNode ? (topCategoryNode.data.name || topCategoryNode.data.category || "General") : "General";
       const name = d.data.name || d.data.offense || d.data.label || "Offense";
       const share = ((d.value / (root.value || 1)) * 100).toFixed(1);
@@ -79,7 +79,7 @@ export async function hierarchy(el, { data, lazy }) {
           <span class="label">VOLUME:</span>
           <strong class="num" style="margin-left:4px; color:var(--bone);">${d3.format(",")(d.value)}</strong>
           <span class="label" style="margin-left:12px;">SHARE:</span>
-          <strong class="num signal" style="margin-left:4px;">${share}%</strong>
+          <strong class="num" style="margin-left:4px; color:var(--bone);">${share}%</strong>
         </div>
       `);
     }
@@ -99,9 +99,10 @@ export async function hierarchy(el, { data, lazy }) {
 
   const getNodeName = (d) => String(d?.name || "Offense");
 
-  // offense_hierarchy.json is flat {category, label, count}. Group it so the audience reads ~8
-  // categories (DESIGN.md: few series); within each, the top 4 offenses and one roll-up tile.
-  const TOP_CATS = 8, TOP_LEAVES = 4;
+  // offense_hierarchy.json is flat {category, label, count}. Build root -> {violent, other} -> category
+  // -> offense. Violent crime is one contiguous, self-labelled red block (no legend). Other crime keeps
+  // its 7 largest categories (DESIGN.md: few series); each category shows its top 4 offenses + a roll-up.
+  const TOP_OTHER = 7, TOP_LEAVES = 4;
   const rows = Array.isArray(rawHierarchy) ? rawHierarchy : [];
   const byCat = d3.rollups(rows, v => d3.rollups(v, w => d3.sum(w, r => +r.count || 0), r => r.label), r => r.category)
     .map(([name, leaves]) => ({ name, leaves: leaves.sort((x, y) => y[1] - x[1]), total: d3.sum(leaves, l => l[1]) }))
@@ -112,13 +113,19 @@ export async function hierarchy(el, { data, lazy }) {
     if (rest > 0) kept.push({ name: `${leaves.length - TOP_LEAVES} other offenses`, value: rest, rollup: true });
     return kept;
   };
-  const children = byCat.slice(0, TOP_CATS).map(c => ({ name: c.name, children: toLeaves(c.leaves) }));
-  const tail = byCat.slice(TOP_CATS);
+  const asCat = c => ({ name: c.name, children: toLeaves(c.leaves) });
+  const violentCats = byCat.filter(c => VIOLENT_CATEGORIES.has(c.name));
+  const otherCats = byCat.filter(c => !VIOLENT_CATEGORIES.has(c.name));
+  const otherChildren = otherCats.slice(0, TOP_OTHER).map(asCat);
+  const tail = otherCats.slice(TOP_OTHER);
   if (tail.length) {
-    children.push({ name: `${tail.length} other categories`, children: [{ name: "All offenses", value: d3.sum(tail, c => c.total), rollup: true }] });
+    otherChildren.push({ name: `${tail.length} other categories`, children: [{ name: "All offenses", value: d3.sum(tail, c => c.total), rollup: true }] });
   }
 
-  const root = d3.hierarchy({ name: "All Crimes", children })
+  const root = d3.hierarchy({ name: "All Crimes", children: [
+    { name: "Violent crime", violent: true, children: violentCats.map(asCat) },
+    { name: "Other crime", children: otherChildren },
+  ] })
     .sum(d => d.value || 0)
     .sort((a, b) => b.value - a.value);
 
@@ -130,24 +137,29 @@ export async function hierarchy(el, { data, lazy }) {
     .size([width, height])
     .paddingOuter(3)
     .paddingInner(2)
-    .paddingTop(d => d.depth === 1 ? HEADER : 3)
+    .paddingTop(d => (d.depth === 1 || d.depth === 2) ? HEADER : 3)
     .round(true)(root);
 
-  // The largest category is the highlight (red); the rest are bone steps by rank.
-  const topCat = root.children?.[0];
-  const catOf = d => d.ancestors().find(a => a.depth === 1);
-  const isTop = d => catOf(d) === topCat;
-  const leafFill = d => isTop(d) ? "var(--signal-fill)" : (d.data.rollup ? "var(--surface)" : "var(--ramp-0)");
+  // Red = violent crime (same categories as the KPI violent share); every other tile is neutral.
+  const catOf = d => d.ancestors().find(a => a.depth === 2);
+  const isViolent = d => d.ancestors().some(a => a.data.violent);
+  const leafFill = d => isViolent(d) ? "var(--signal-fill)" : (d.data.rollup ? "var(--surface)" : "var(--ramp-0)");
+  const pct = d => `${((d.value / totalValue) * 100).toFixed(1)}%`;
 
   const svg = chartBox.append("svg")
     .attr("width", "100%")
     .attr("height", "100%")
     .attr("viewBox", `0 0 ${width} ${height}`);
 
-  // Fit a label to its box: drop it if too tall, ellipsize if too wide, drop if still too wide.
-  const fitText = (textEl, maxW, maxH) => {
+  // Fit a label to its box: try each shorter wording in turn, then ellipsize the last; drop it if
+  // it is too tall or still too wide.
+  const fitText = (textEl, maxW, maxH, alts = []) => {
     const node = textEl.node();
     if (node.getBBox().height > maxH) return textEl.remove();
+    for (const alt of alts) {
+      if (node.getComputedTextLength() <= maxW) return;
+      node.textContent = alt;
+    }
     let str = node.textContent;
     while (node.getComputedTextLength() > maxW && str.length > 4) {
       str = str.slice(0, -2);
@@ -156,8 +168,9 @@ export async function hierarchy(el, { data, lazy }) {
     if (node.getComputedTextLength() > maxW) textEl.remove();
   };
 
+  // Group (depth 1) and category (depth 2) frames with header text; the group header names the unit.
   const parents = svg.selectAll("g.parent")
-    .data(root.children || [])
+    .data(root.descendants().filter(d => d.depth === 1 || d.depth === 2))
     .join("g")
     .attr("class", "parent");
 
@@ -167,17 +180,25 @@ export async function hierarchy(el, { data, lazy }) {
     .attr("width", d => Math.max(0, d.x1 - d.x0))
     .attr("height", d => Math.max(0, d.y1 - d.y0))
     .attr("fill", "none")
-    .attr("stroke", "var(--hairline)");
+    .attr("stroke", d => d.depth === 1 ? "var(--bone-60)" : "var(--hairline)");
 
   parents.append("text")
     .attr("x", d => d.x0 + 6)
     .attr("y", d => d.y0 + HEADER * 0.68)
-    .attr("fill", "var(--bone)")
+    .attr("fill", d => d.depth === 1 ? "var(--bone)" : "var(--bone-60)")
     .style("font-weight", "700")
     .style("letter-spacing", "var(--tracking-label)")
     .style("pointer-events", "none")
-    .text(d => `${getNodeName(d.data).toUpperCase()} ${((d.value / totalValue) * 100).toFixed(0)}%`)
-    .each(function (d) { fitText(d3.select(this), d.x1 - d.x0 - 12, HEADER); });
+    .text(d => d.depth === 1
+      ? `${getNodeName(d.data).toUpperCase()} · ${pct(d)} OF OFFENSES`
+      : `${getNodeName(d.data).toUpperCase()} ${pct(d)}`)
+    .each(function (d) {
+      const name = getNodeName(d.data).toUpperCase();
+      const alts = d.depth === 1
+        ? [`${name} · ${pct(d)}`, `${name.split(" ")[0]} · ${pct(d)}`, pct(d)]
+        : [name];
+      fitText(d3.select(this), d.x1 - d.x0 - 12, HEADER, alts);
+    });
 
   const leaves = svg.selectAll("g.leaf")
     .data(root.leaves())

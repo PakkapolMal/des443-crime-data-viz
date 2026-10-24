@@ -49,7 +49,7 @@ export async function kpi(el, { lazy }) {
     { 
       label: "Violent share (FBI)", 
       val: formatPct(data.violent_share_fbi, "14.1%"), 
-      sub: "most serious offense is homicide, rape, robbery or aggravated assault" 
+      sub: "of reports whose most serious offense is homicide, rape, robbery or aggravated assault" 
     },
     { 
       label: "Cleared by arrest", 
