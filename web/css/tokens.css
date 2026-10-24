@@ -25,6 +25,14 @@
   --ramp-3: #e8e2d6;
   --context: var(--bone-60);  /* non-highlighted series */
 
+  /* Categorical hues (DESIGN.md "Categorical hues"). One hue = one meaning; never red.
+     6.5-9.7:1 on --bg. Text on these fills is --bg (bone and white fail, 1.6-3.0:1). */
+  --series-1: #A8B84A;   /* first selected series */
+  --series-2: #E3A33B;   /* second selected series */
+  --series-3: #2FA58F;   /* third selected series */
+  --sex-f: #D98BB0;      /* female victims */
+  --sex-m: #7DBDE8;      /* male victims */
+
   /* Type */
   --font-display: "Instrument Serif", Georgia, serif;   /* italic, uppercase, headings only */
   --font-mono: "JetBrains Mono", ui-monospace, Consolas, monospace;

@@ -91,5 +91,8 @@ Open question: there's no basemap yet. Decide between plain cells over an LA are
 - [ ] Works on GitHub Pages (relative paths only)
 - [ ] `python src/validate_nibrs.py` still passes, because the data is unchanged
 
+## Open: category wording (review v2, 2026-10-24)
+- [ ] Recheck every category name a lay audience sees. "Weapon Law" reads as "a weapon was used" (it means weapon-law violations), and "Group B" (arrest-only offenses such as DUI or trespass) means nothing to non-specialists. Also review "Other Group A" and "Unmapped". Change display labels only, through one shared label map; the JSON values stay unchanged. Candidates are in `docs/analysis_v2.md` → *Category wording*.
+
 ## After all pages are done
-- [ ] Save local copies of D3 and both fonts (Instrument Serif, JetBrains Mono) in the repo and load them from there, so the page works without classroom Wi-Fi. Until then they load from jsDelivr and Google Fonts.
+- [ ] Save local copies of D3, d3-sankey and both fonts (Instrument Serif, JetBrains Mono) in the repo and load them from there, so the page works without classroom Wi-Fi. Until then they load from jsDelivr and Google Fonts.

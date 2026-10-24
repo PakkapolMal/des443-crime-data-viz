@@ -105,7 +105,7 @@ export async function pyramid(el, { data, lazy }) {
   const bbox = chartBox.node()?.getBoundingClientRect() || {};
   const width = bbox.width || 800;
   const height = bbox.height || 360;
-  const margin = { top: 35, right: 40, bottom: 35, left: 40 };
+  const margin = { top: 45, right: 40, bottom: 35, left: 40 };
 
   const svg = chartBox.append("svg")
     .attr("width", "100%")
@@ -130,26 +130,21 @@ export async function pyramid(el, { data, lazy }) {
     .domain([0, maxVal * 1.1])
     .range([width - margin.right - halfWidth, width - margin.right]);
 
-  // Section Headers
-  svg.append("text")
-    .attr("x", margin.left + halfWidth / 2)
-    .attr("y", margin.top - 12)
-    .attr("text-anchor", "middle")
-    .attr("fill", "var(--bone)")
-    .style("font-size", "var(--fs-small)")
-    .style("font-family", "var(--font-mono)")
-    .style("font-weight", "700")
-    .text("MALE VICTIMS");
-
-  svg.append("text")
-    .attr("x", width - margin.right - halfWidth / 2)
-    .attr("y", margin.top - 12)
-    .attr("text-anchor", "middle")
-    .attr("fill", "var(--signal)")
-    .style("font-size", "var(--fs-small)")
-    .style("font-family", "var(--font-mono)")
-    .style("font-weight", "700")
-    .text("FEMALE VICTIMS");
+  // Direct side labels in the matching hue, with totals (DESIGN.md: hue always paired with a label).
+  const sideLabel = (x, name, hue, total) => {
+    const t = svg.append("text")
+      .attr("x", x)
+      .attr("y", margin.top - 12)
+      .attr("text-anchor", "middle")
+      .style("font-size", "var(--fs-body)")
+      .style("font-weight", "700")
+      .style("letter-spacing", "var(--tracking-label)");
+    t.append("tspan").attr("fill", hue).text(name);
+    t.append("tspan").attr("fill", "var(--bone)").attr("class", "num").style("font-weight", "400")
+      .text(`  ${d3.format(",")(total)} victims`);
+  };
+  sideLabel(margin.left + halfWidth / 2, "MALE", "var(--sex-m)", d3.sum(maleData.values()));
+  sideLabel(width - margin.right - halfWidth / 2, "FEMALE", "var(--sex-f)", d3.sum(femaleData.values()));
 
   // Center Age Group Labels
   svg.selectAll(".age-center-label")
@@ -175,10 +170,10 @@ export async function pyramid(el, { data, lazy }) {
     .attr("x", d => xLeftScale(maleData.get(d) || 0))
     .attr("height", yScale.bandwidth())
     .attr("width", d => Math.max(0, (margin.left + halfWidth) - xLeftScale(maleData.get(d) || 0)))
-    .attr("fill", "var(--bone)")
+    .attr("fill", "var(--sex-m)")
     .style("cursor", "pointer")
     .on("mouseover", function (event, d) {
-      d3.select(this).attr("fill", "var(--signal)");
+      d3.select(this).attr("stroke", "var(--bone)").attr("stroke-width", 2);
       updateBanner(d, "Male");
 
       const cnt = maleData.get(d) || 0;
@@ -196,7 +191,7 @@ export async function pyramid(el, { data, lazy }) {
         .style("top", (event.clientY - 28) + "px");
     })
     .on("mouseout", function () {
-      d3.select(this).attr("fill", "var(--bone)");
+      d3.select(this).attr("stroke", null);
       updateBanner(null);
       tooltip.style("opacity", 0);
     });
@@ -211,9 +206,10 @@ export async function pyramid(el, { data, lazy }) {
     .attr("x", width - margin.right - halfWidth)
     .attr("height", yScale.bandwidth())
     .attr("width", d => Math.max(0, xRightScale(femaleData.get(d) || 0) - (width - margin.right - halfWidth)))
-    .attr("fill", "var(--signal)")
+    .attr("fill", "var(--sex-f)")
     .style("cursor", "pointer")
     .on("mouseover", function (event, d) {
+      d3.select(this).attr("stroke", "var(--bone)").attr("stroke-width", 2);
       updateBanner(d, "Female");
 
       const cnt = femaleData.get(d) || 0;
@@ -231,6 +227,7 @@ export async function pyramid(el, { data, lazy }) {
         .style("top", (event.clientY - 28) + "px");
     })
     .on("mouseout", function () {
+      d3.select(this).attr("stroke", null);
       updateBanner(null);
       tooltip.style("opacity", 0);
     });
@@ -509,7 +506,7 @@ export async function descent(el, { data, lazy }) {
     .style("background", "var(--surface)")
     .style("border", "var(--rule)")
     .style("position", "relative")
-    .style("overflow-y", "auto");
+    .style("overflow", "hidden");
 
   // Caveat Banner at bottom
   wrapper.append("p")
@@ -540,7 +537,9 @@ export async function descent(el, { data, lazy }) {
     const bbox = chartBox.node()?.getBoundingClientRect() || {};
     const width = bbox.width || 800;
     const rowHeight = 24;
-    const margin = { top: 15, right: 90, bottom: 25, left: 180 };
+    // Left margin fits the longest group name ("American Indian/Alaskan Native") at --fs-small.
+    const k = Math.max(1, window.innerWidth / 1280);
+    const margin = { top: 15, right: 130 * k, bottom: 25, left: 230 * k };
     const height = Math.max(bbox.height || 300, chartData.length * rowHeight + margin.top + margin.bottom);
 
     const svg = chartBox.append("svg")

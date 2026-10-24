@@ -20,7 +20,7 @@ export async function about(el, { data, lazy }) {
     .style("flex-direction", "column")
     .style("width", "100%")
     .style("height", "100%")
-    .style("overflow-y", "auto")
+    .style("overflow", "hidden")
     .style("gap", "var(--s-2)");
 
   // Header Section
@@ -37,25 +37,6 @@ export async function about(el, { data, lazy }) {
     .style("margin-top", "var(--s-1)")
     .text("Incident-level exploration of crime volume, spatial density, victim demographics, and clearance dynamics across Los Angeles.");
 
-  const statusBadge = header.append("div")
-    .style("background", "var(--surface)")
-    .style("border", "1px solid var(--signal)")
-    .style("color", "var(--signal)")
-    .style("padding", "var(--s-1) var(--s-2)")
-    .style("font-family", "var(--font-mono)")
-    .style("font-size", "var(--fs-small)")
-    .style("font-weight", "600")
-    .style("display", "flex")
-    .style("align-items", "center")
-    .style("gap", "var(--s-1)");
-
-  statusBadge.append("span")
-    .style("width", "6px")
-    .style("height", "6px")
-    .style("border-radius", "50%")
-    .style("background", "var(--signal)");
-  statusBadge.append("span").text("NIBRS COMPLIANT");
-
   // Hero KPI Grid
   const kpiGrid = wrapper.append("div")
     .style("display", "grid")
@@ -67,28 +48,24 @@ export async function about(el, { data, lazy }) {
       label: "TOTAL INCIDENT REPORTS", 
       val: kpi.incidents ? d3.format(",")(kpi.incidents) : "435,318", 
       sub: "Unique CaseNo records", 
-      borderColor: "var(--signal)",
       isDate: false
     },
     { 
       label: "TOTAL OFFENSES COUNTED", 
       val: kpi.offenses ? d3.format(",")(kpi.offenses) : "484,949", 
       sub: "~1.11 offenses per incident", 
-      borderColor: "var(--bone)",
       isDate: false
     },
     { 
       label: "VICTIMS RECORDED", 
       val: kpi.victims ? d3.format(",")(kpi.victims) : "444,150", 
       sub: "Individual, business & public", 
-      borderColor: "var(--bone-60)",
       isDate: false
     },
     { 
       label: "ANALYSIS WINDOW", 
       val: `${kpi.window_start || "2024-04"} → ${kpi.window_end || "2026-09"}`, 
       sub: "30-month operational window", 
-      borderColor: "var(--hairline)",
       isDate: true
     }
   ];
@@ -96,8 +73,6 @@ export async function about(el, { data, lazy }) {
   cards.forEach(c => {
     const card = kpiGrid.append("div")
       .style("background", "var(--surface)")
-      .style("border", "var(--rule)")
-      .style("border-left", `4px solid ${c.borderColor}`)
       .style("padding", "var(--s-2) var(--s-3)");
 
     card.append("div")
@@ -127,7 +102,6 @@ export async function about(el, { data, lazy }) {
   // Relational Architecture Panel
   const specCard = mainPanel.append("div")
     .style("background", "var(--surface)")
-    .style("border", "var(--rule)")
     .style("padding", "var(--s-3)")
     .style("display", "flex")
     .style("flex-direction", "column")
@@ -135,11 +109,11 @@ export async function about(el, { data, lazy }) {
 
   specCard.append("div").html(`
     <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:var(--s-1);">
-      <h3 style="margin:0; font-size:var(--fs-label); font-weight:700; color:var(--bone); font-family:var(--font-mono);">RELATIONAL NIBRS DATA ARCHITECTURE</h3>
-      <span class="label" style="color:var(--signal); border:var(--rule); padding:2px 6px;">JOIN KEY: CaseNo</span>
+      <p class="label" style="color:var(--bone); font-weight:700;">RELATIONAL NIBRS DATA ARCHITECTURE</p>
+      <span class="label" style="border:var(--rule); padding:2px 6px;">JOIN KEY: CaseNo</span>
     </div>
     <p class="caption" style="line-height:1.5;">
-      Under NIBRS, a single incident (identified by <code style="color:var(--signal); background:var(--bg); padding:2px 4px;">CaseNo</code>) links separate offense records and victim entities. This solves legacy UCR limitations where multi-offense events were compressed into a single top charge.
+      Under NIBRS, a single incident (identified by <code style="color:var(--bone); background:var(--bg); padding:2px 4px;">CaseNo</code>) links separate offense records and victim entities. This solves legacy UCR limitations where multi-offense events were compressed into a single top charge.
     </p>
   `);
 
@@ -155,22 +129,22 @@ export async function about(el, { data, lazy }) {
     .style("font-family", "var(--font-mono)");
 
   diagBox.append("div").html(`
-    <div class="label" style="color:var(--signal);">OFFENSES TABLE</div>
+    <div class="label" style="color:var(--bone);">OFFENSES TABLE</div>
     <div style="font-size:var(--fs-label); font-weight:700; color:var(--bone); margin-top:2px;">~499k Rows</div>
     <div class="caption" style="margin-top:2px;">Grain: <code style="color:var(--bone);">UniqueNIBRNo</code></div>
-    <div class="caption" style="margin-top:4px; font-size:10px;">NIBR Statute, Severity, Premise, Weapon Code, Coordinates</div>
+    <div class="caption" style="margin-top:4px;">NIBR Statute, Severity, Premise, Weapon Code, Coordinates</div>
   `);
 
   // Center SVG Bidirectional Connector
   diagBox.append("div").html(`
     <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; padding:0 var(--s-1);">
-      <span style="font-size:9px; font-family:var(--font-mono); color:var(--signal); letter-spacing:0.05em; font-weight:700;">1 : N</span>
+      <span class="label" style="color:var(--bone); font-weight:700;">1 : N</span>
       <svg width="56" height="12" viewBox="0 0 56 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M6 6H50" stroke="var(--signal)" stroke-width="1.5" stroke-linecap="round"/>
-        <path d="M1 6L7 1M1 6L7 11" stroke="var(--signal)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-        <path d="M55 6L49 1M55 6L49 11" stroke="var(--signal)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M6 6H50" stroke="var(--bone-60)" stroke-width="1.5" stroke-linecap="round"/>
+        <path d="M1 6L7 1M1 6L7 11" stroke="var(--bone-60)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M55 6L49 1M55 6L49 11" stroke="var(--bone-60)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
       </svg>
-      <span style="font-size:9px; font-family:var(--font-mono); color:var(--bone-60);">CaseNo</span>
+      <span class="label">CaseNo</span>
     </div>
   `);
 
@@ -178,22 +152,21 @@ export async function about(el, { data, lazy }) {
     <div class="label" style="color:var(--bone);">VICTIMS TABLE</div>
     <div style="font-size:var(--fs-label); font-weight:700; color:var(--bone); margin-top:2px;">~457k Rows</div>
     <div class="caption" style="margin-top:2px;">Grain: <code style="color:var(--bone);">UniqueVictimNo</code></div>
-    <div class="caption" style="margin-top:4px; font-size:10px;">Victim Type, Age Group, Sex, Descent, Offense List</div>
+    <div class="caption" style="margin-top:4px;">Victim Type, Age Group, Sex, Descent, Offense List</div>
   `);
 
   // Source Endpoints Panel
   const endpointCard = mainPanel.append("div")
     .style("background", "var(--surface)")
-    .style("border", "var(--rule)")
     .style("padding", "var(--s-3)")
     .style("display", "flex")
     .style("flex-direction", "column")
     .style("gap", "var(--s-2)");
 
-  endpointCard.append("h3")
+  endpointCard.append("p")
     .attr("class", "label")
-    .style("font-size", "var(--fs-label)")
     .style("color", "var(--bone)")
+    .style("font-weight", "700")
     .text("PRIMARY OPEN DATA SOURCES");
 
   const offSrc = endpointCard.append("div")
@@ -204,7 +177,7 @@ export async function about(el, { data, lazy }) {
   offSrc.html(`
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
       <strong style="font-size:var(--fs-small); color:var(--bone); font-family:var(--font-mono);">NIBRS Crime Offenses</strong>
-      <a href="https://data.lacity.org/d/k7nn-b2ep" target="_blank" class="label" style="color:var(--signal); text-decoration:none; border:var(--rule); padding:2px 6px;">k7nn-b2ep ↗</a>
+      <a href="https://data.lacity.org/d/k7nn-b2ep" target="_blank" class="label" style="color:var(--bone-60); text-decoration:none; border:var(--rule); padding:2px 6px;">k7nn-b2ep ↗</a>
     </div>
     <p class="caption" style="margin:0; line-height:1.4;">
       Published by LAPD on LA Open Data. Updated continuously with incident details, weapon classifications, and geocoded locations.

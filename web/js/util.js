@@ -12,6 +12,12 @@ export const CATEGORIES = [
   "Weapon Law", "Drugs", "Other Group A", "Group B", "Unmapped",
 ];
 
+// FBI violent crime, as categories. kpi.violent_share_fbi uses FBI_VIOLENT_CODES (09A/B, 11A-D, 120, 13A)
+// on the primary offense; every one of those codes maps to these four categories.
+// ponytail: Sex Offense also holds 36A/36B (incest, statutory), which the KPI excludes; files without
+// nibr_code can't split it. Add nibr_code to the export if the gap matters.
+export const VIOLENT_CATEGORIES = new Set(["Homicide", "Sex Offense", "Robbery", "Aggravated Assault"]);
+
 // Colours come from tokens.css so CSS stays the single source.
 const css = getComputedStyle(document.documentElement);
 const token = (name) => css.getPropertyValue(name).trim();
@@ -28,11 +34,11 @@ const tip = document.getElementById("tooltip");
 export const tooltip = {
   show(html, event) {
     tip.innerHTML = html;
-    tip.hidden = false;
+    tip.style.opacity = 1;
     tip.style.left = `${event.clientX + 12}px`;
     tip.style.top = `${event.clientY + 12}px`;
   },
-  hide() { tip.hidden = true; },
+  hide() { tip.style.opacity = 0; },
 };
 
 // Skeleton stand-in until a screen's real chart is built.

@@ -31,7 +31,19 @@ The dashboard is presented live, in front of a class, on a 16:9 projector or scr
 | `--signal` | `#e5383b` | Red **text and data marks** |
 | `--signal-fill` | `#9d0208` | Red **fills** |
 
-**No other hues and no gradients.** (The chart ramp below is a data scale, not a gradient on a surface.)
+### Categorical hues
+Red is the only signal colour. Other hues are allowed only in two places:
+
+| Token | Value | Meaning |
+|---|---|---|
+| `--series-1` / `--series-2` / `--series-3` | `#A8B84A` / `#E3A33B` / `#2FA58F` | Series slots: the 1st, 2nd and 3rd series a viewer selects (max 3 per chart) |
+| `--sex-f` / `--sex-m` | `#D98BB0` / `#7DBDE8` | Victim sex: female / male |
+
+- **One hue, one meaning.** A series slot never stands for sex, and a sex hue never stands for a series.
+- **Never red.** A categorical hue must not be red or near-red, so it never competes with the signal.
+- **Always paired with direct labels or a legend.** Colour never carries a category alone.
+- **Text on coloured fills is `--bg`** (6.5–9.7:1). Bone, and even pure white, fails on these light fills (1.6–3.0:1). Where there is room, put the label beside the mark on `--bg` in bone instead. The red `--signal-fill` keeps bone text (6.7:1).
+- No gradients. (The chart ramp below is a data scale, not a gradient on a surface.)
 
 ### Red is a signal
 Red marks the one thing the reader should look at. Allowed only on:
@@ -66,7 +78,7 @@ Constraints:
 - **Sequential:** `d3.scaleLinear().domain([0, 1/3, 2/3, 1]).range([ramp-0 … ramp-3])` over the normalised value: `#2a2a2a` → `#9d0208` → `#e5383b` → bone. Use for the density grid and heatmaps. Use a log or quantile domain when the data is skewed.
   - The low end is a neutral grey, not black: a projector lifts black to grey, so black and very dark red merge into the background. Zero or no data draws **no mark** (the background shows); the smallest non-zero value is `--ramp-0`, so it always stays visible.
 - **Context vs highlight:** every series is `--context` (bone 60%) by default; the one highlighted series is `--signal`. Non-highlighted lines 1px, highlighted 2px.
-- **Categories:** there is no categorical hue palette. Tell categories apart by position (small multiples, ordered bars), direct labels at line ends, and bone opacity steps (100 / 60 / 35) when they must share a plot. The category order is fixed across pages so a category always sits in the same place.
+- **Categories:** by default there is no categorical hue; tell categories apart by position (small multiples, ordered bars), direct labels at line ends, and bone opacity steps (100 / 60 / 35) when they must share a plot. The category order is fixed across pages so a category always sits in the same place. When a viewer picks up to 3 series to compare, colour them `--series-1…3` in selection order (see *Categorical hues*).
 - Gridlines and axis domains: `--hairline`. Tick labels: `--bone-60`, mono, `--fs-label`.
 - Tooltip: `--surface`, `--rule`, mono 12px, no radius, no shadow.
 - Caveat notes: one mono line in `--bone-60`, linking to `#about`.
@@ -74,6 +86,7 @@ Constraints:
 
 ## Accessibility
 - **Red text must be `#e5383b` at large or bold sizes only** (≥ 24px regular, or ≥ 18.66px bold). It measures 4.65:1 on `--bg` and 4.35:1 on `--surface`, so it is not safe for small body text. Never set text in `#9d0208` (2.3:1).
+- Categorical hues are 6.5–9.7:1 on `--bg`, so they are safe as marks and as text on `--bg`. Text *on* those fills must be `--bg`: bone (1.6–2.4:1) and white (2.0–3.0:1) both fail AA.
 - `--signal-fill` (`#9d0208`) is 2.3:1 against the background, under the 3:1 non-text minimum. A red fill must always carry a bone label or value, so meaning never depends on the fill alone.
 - `--bone-35` is 2.7:1: never for content a reader needs. Body and labels use `--bone` (15:1) or `--bone-60` (5.9:1).
 - Red is never the only cue. A highlighted series also gets a heavier stroke and a direct label; an active filter also gets a marker or underline.

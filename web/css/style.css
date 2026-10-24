@@ -104,7 +104,20 @@ button[disabled] { color: var(--bone-35); cursor: default; }
   padding: var(--s-1) var(--s-2);
   font-size: var(--fs-small);
   z-index: 1000;
+  opacity: 0; /* charts show it with style("opacity", 1) */
 }
+
+/* --- Tables: 1px hairlines between rows only (DESIGN.md: no vertical rules, no outer box) --- */
+.data-table { border-collapse: collapse; }
+.data-table th {
+  font-size: var(--fs-label);
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-label);
+  color: var(--bone-60);
+  border-bottom: var(--rule);
+}
+.data-table td { border-bottom: var(--rule); }
 
 /* --- Charts General --- */
 svg { display: block; overflow: visible; }
@@ -130,50 +143,55 @@ svg text { font-family: var(--font-mono); font-size: var(--fs-label); fill: var(
   box-sizing: border-box;
 }
 
-.kpi-row {
+/* KPI screen: stacked number + sentence on the left, monthly trend on the right */
+.kpi-body {
+  flex: 1;
+  min-height: 0;
   display: grid;
-  grid-template-columns: 1.4fr repeat(4, 1fr);
-  border-top: var(--rule);
-  padding-top: var(--s-2);
-  gap: var(--s-2);
-  width: 100%;
-  box-sizing: border-box;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.9fr);
+  gap: var(--s-5);
 }
 
-.kpi { 
-  padding: var(--s-2) var(--s-2) 0 0; 
-  display: flex; 
-  flex-direction: column; 
-  gap: var(--s-1); 
+.kpi-list {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 0;
+}
+
+.kpi {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+  padding: var(--s-2) 0;
   min-width: 0;
-  overflow: hidden;
 }
 
-.kpi + .kpi { border-left: var(--rule); padding-left: var(--s-2); }
+.kpi + .kpi { border-top: var(--rule); }
 
-.kpi-value { 
-  font-size: clamp(26px, 2.5vw, 48px); 
-  font-weight: 700; 
-  line-height: 1; 
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.kpi-value {
+  font-size: clamp(26px, 2.5vw, 48px);
+  font-weight: 700;
+  line-height: 1;
 }
 
-.trend { 
-  flex: 1; 
-  min-height: 0; 
-  display: flex; 
-  flex-direction: column; 
-  gap: var(--s-1); 
+.kpi-text { font-size: var(--fs-small); color: var(--bone-60); max-width: 44ch; }
+
+.trend {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
 }
 
-.trend-plot { 
-  flex: 1; 
-  min-height: 0; 
+.trend-plot {
+  flex: 1;
+  min-height: 0;
   position: relative;
   width: 100%;
 }
+
+.axis-lg text { font-size: var(--fs-small); }
 
 .footer { 
   display: flex; 
