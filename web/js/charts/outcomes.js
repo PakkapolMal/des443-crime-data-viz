@@ -237,7 +237,7 @@ export async function funnel(el, { data, lazy }) {
   header.append("p")
     .attr("class", "caption")
     .style("margin-top", "var(--s-1)")
-    .text("Where reported cases end up. Clearance cohort: cases at least 180 days old at the snapshot.");
+    .text("Where reported cases end up. Clearance cohort: cases at least 180 days old at the snapshot. \"Not cleared\" means no arrest or other clearance recorded yet; some cases may still be under investigation.");
 
   // The 5 stage totals form a tree (CONTEXT_NIBRS.md PROSECUTION_STAGE): Filed is a subset of
   // Cleared by Arrest, Rejected a subset of Cleared Other. The remainders are derived here.
@@ -260,9 +260,14 @@ export async function funnel(el, { data, lazy }) {
     return;
   }
 
-  // The story path is red: Reported -> Cleared by arrest -> Filed. Everything else is bone.
-  const storyNodes = new Set(["Reported", "Cleared by arrest", "Filed"]);
-  const isStory = l => storyNodes.has(l.source.name) && storyNodes.has(l.target.name);
+  // Two emphases, everything else dimmed: "Not cleared" is the red signal (its band is ~3/4 of the
+  // chart, so the band uses the darker fill at partial opacity and full red sits on the node and number);
+  // "Filed" is full-strength bone. No new hue (DESIGN.md: one hue = one meaning).
+  const SIGNAL = "Not cleared", BRIGHT = "Filed";
+  const linkStroke = l => l.target.name === SIGNAL ? "var(--signal-fill)" : "var(--bone)";
+  const linkOpacity = l => l.target.name === SIGNAL ? 0.55 : l.target.name === BRIGHT ? 0.9 : 0.15;
+  const nodeFill = d => d.name === SIGNAL ? "var(--signal)"
+    : (d.name === BRIGHT || d.depth === 0) ? "var(--bone)" : "var(--bone-60)";
 
   const chartBox = wrapper.append("div")
     .style("flex", "1")
@@ -305,8 +310,8 @@ export async function funnel(el, { data, lazy }) {
     .data(graph.links)
     .join("path")
     .attr("d", sankeyLinkHorizontal())
-    .attr("stroke", l => isStory(l) ? "var(--signal)" : "var(--bone)")
-    .attr("stroke-opacity", l => isStory(l) ? 0.7 : 0.18)
+    .attr("stroke", linkStroke)
+    .attr("stroke-opacity", linkOpacity)
     .attr("stroke-width", l => Math.max(1, l.width))
     .style("cursor", "pointer")
     .on("mouseover mousemove", (event, l) => tip(event, `
@@ -325,7 +330,7 @@ export async function funnel(el, { data, lazy }) {
     .attr("y", d => d.y0)
     .attr("width", d => d.x1 - d.x0)
     .attr("height", d => Math.max(1, d.y1 - d.y0))
-    .attr("fill", d => d.name === "Filed" ? "var(--signal-fill)" : "var(--bone)")
+    .attr("fill", nodeFill)
     .on("mouseover mousemove", (event, d) => tip(event, `
       <strong>${d.name}</strong><br/>
       <strong>${d3.format(",")(d.value)}</strong> cases · ${pctOf(d.value, reported)} of reported`))
@@ -343,8 +348,22 @@ export async function funnel(el, { data, lazy }) {
     .style("stroke-width", "3px")
     .style("pointer-events", "none")
     .call(t => t.append("tspan").style("font-weight", "700").text(d => d.name))
-    .call(t => t.append("tspan").attr("class", "num").attr("fill", "var(--bone-60)")
+    .call(t => t.append("tspan").attr("class", "num").attr("fill", d => d.name === BRIGHT ? "var(--bone)" : "var(--bone-60)")
       .text(d => numbers(d.name)));
+
+  // Key statistic under the "Not cleared" label: red text only at large bold size (DESIGN.md accessibility).
+  const nc = graph.nodes.find(d => d.name === SIGNAL);
+  if (nc) {
+    svg.append("text")
+      .attr("x", nc.x1 + 8)
+      .attr("y", (nc.y0 + nc.y1) / 2 + fsLabel * 1.2)
+      .attr("dy", "0.9em")
+      .attr("class", "num")
+      .attr("fill", "var(--signal)")
+      .style("font-size", "var(--fs-h3)")
+      .style("font-weight", "700")
+      .text(`${pctOf(nc.value, reported)} not cleared`);
+  }
 }
 
 /**

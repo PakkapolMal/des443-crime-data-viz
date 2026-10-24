@@ -71,7 +71,7 @@ Original framing:
 - **6 Locations:** 1px hairlines under the header and between rows (shared `.data-table` CSS).
 - **9 Co-occurrence:** pairs are mirrored and the diagonal is `--bg`. The tooltip text is no longer red.
 - **10 Weapons:** all bars start bone; red on hover only.
-- **13 Sankey:** `d3-sankey@0.12.3` (jsDelivr). Three columns, using the flow in *Round 2 detail*. The red story path is Reported → Cleared by arrest → Filed. Labels give the count and % of reported, and the tooltip on each link adds % of its source. The old rejection banner, and its wrong denominator, are gone.
+- **13 Sankey:** `d3-sankey@0.12.3` (jsDelivr). Three columns, using the flow in *Round 2 detail*. Colours (owner, 2026-10-24): **"Not cleared" is the red signal**: the dark red band at 55% opacity, a full red node, and a large bold "73.3% not cleared". **"Filed" is full-strength bone**; everything else is dimmed. No blue, because `--sex-m` already means male victims. The caption notes that "not cleared" can include cases still under investigation. Labels give the count and % of reported, and the tooltip on each link adds % of its source. The old rejection banner, and its wrong denominator, are gone.
 - **14 Lag:** the three cards are removed, and the chart takes the full width. Whiskers now run to p90 (as in TASK.md), and the axis runs to the longest p90 (178 days) with gridlines. The tooltip shows median, Q1–Q3, p90, mean and incident count. A one-line key explains box, line and whisker. The label column fits the longest name, so "Simple Assault/Intimidation" no longer overflows at 1920.
 - **Checks:** at 1280×720 and 1920×1080, no inner scroll, no text outside the content box, min font 11px / 16px, no console errors.
 
