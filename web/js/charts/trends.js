@@ -7,6 +7,29 @@
 import * as d3 from "https://cdn.jsdelivr.net/npm/d3@7.9.0/+esm";
 import { CATEGORIES } from "../util.js";
 
+// Animate updates only: the first draw (and every draw under prefers-reduced-motion) sets the final
+// state at once, so a chart never depends on a transition finishing to be visible.
+const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+const animate = (sel, first) => (first || reduceMotion) ? sel : sel.transition().duration(250);
+
+// Up to MAX_SERIES categories can be on at once (DESIGN.md: series hues, max 3 per chart). A category
+// keeps its slot, and so its colour, until it is switched off.
+const MAX_SERIES = 3;
+function seriesSlots(initial) {
+  const slot = new Map(initial.slice(0, MAX_SERIES).map((c, i) => [c, i]));
+  return {
+    has: c => slot.has(c),
+    full: () => slot.size >= MAX_SERIES,
+    color: c => `var(--series-${slot.get(c) + 1})`,
+    toggle(c) {
+      if (slot.has(c)) { if (slot.size > 1) slot.delete(c); return; }
+      if (slot.size >= MAX_SERIES) return;
+      const free = d3.range(MAX_SERIES).find(i => ![...slot.values()].includes(i));
+      slot.set(c, free);
+    },
+  };
+}
+
 /**
  * Screen 1: Monthly multi-line chart by category with interactive toggle legend
  */
@@ -24,8 +47,9 @@ export async function monthly(el, { data, lazy }) {
     date: parseTime(d.month)
   })).filter(d => d.date != null);
 
-  const categories = Array.from(new Set(formatted.map(d => d.category))).sort();
-  let activeCategories = new Set(categories);
+  const present = new Set(formatted.map(d => d.category));
+  const categories = CATEGORIES.filter(c => present.has(c));
+  const slots = seriesSlots(["Larceny/Theft", "Weapon Law"].filter(c => present.has(c)));
 
   const wrapper = container.append("div")
     .style("display", "flex")
@@ -41,28 +65,24 @@ export async function monthly(el, { data, lazy }) {
   header.append("p")
     .attr("class", "caption")
     .style("margin-top", "var(--s-1)")
-    .text("Monthly incident counts across LAPD crime categories (Apr 2024 – Sep 2026). Click buttons to toggle.");
+    .text(`Monthly incident counts, Apr 2024 – Sep 2026. Pick up to ${MAX_SERIES} categories to compare.`);
 
-  // Category Toggle Legend
+  // Category toggles: a pressed toggle shows its series colour as a swatch (not colour alone: aria-pressed + bone border).
   const legend = wrapper.append("div")
     .style("display", "flex")
     .style("flex-wrap", "wrap")
     .style("gap", "var(--s-1)");
 
-  categories.forEach((cat) => {
-    legend.append("button")
-      .attr("aria-pressed", "true")
-      .text(cat)
-      .on("click", function () {
-        if (activeCategories.has(cat)) {
-          if (activeCategories.size > 1) activeCategories.delete(cat);
-        } else {
-          activeCategories.add(cat);
-        }
-        d3.select(this).attr("aria-pressed", activeCategories.has(cat) ? "true" : "false");
-        updateChart();
-      });
-  });
+  const buttons = legend.selectAll("button")
+    .data(categories)
+    .join("button")
+    .style("display", "inline-flex")
+    .style("align-items", "center")
+    .style("gap", "var(--s-1)")
+    .on("click", (event, cat) => { slots.toggle(cat); updateChart(); });
+  buttons.append("span").attr("class", "swatch")
+    .style("width", "0.8em").style("height", "0.8em");
+  buttons.append("span").text(d => d);
 
   // Chart Box
   const chartBox = wrapper.append("div")
@@ -74,7 +94,10 @@ export async function monthly(el, { data, lazy }) {
   const bbox = chartBox.node()?.getBoundingClientRect() || {};
   const width = bbox.width || 1000;
   const height = bbox.height || 360;
-  const margin = { top: 15, right: 30, bottom: 30, left: 50 };
+  // Right margin holds the direct labels at line ends (longest category name at --fs-label).
+  const fsLabel = Math.max(11, window.innerWidth * 0.00833);
+  const labelW = (d3.max(categories, c => c.length) || 20) * fsLabel * 0.62 + 12;
+  const margin = { top: 15, right: labelW, bottom: 30, left: 50 };
 
   const svg = chartBox.append("svg")
     .attr("width", "100%")
@@ -127,34 +150,53 @@ export async function monthly(el, { data, lazy }) {
     .y(d => yScale(d.count))
     .curve(d3.curveMonotoneX);
 
-  function updateChart() {
-    const filtered = formatted.filter(d => activeCategories.has(d.category));
-    const grouped = d3.groups(filtered, d => d.category);
+  const linesG = g.append("g");
+  const labelsG = g.append("g");
 
-    const maxCount = d3.max(filtered, d => d.count) || 1000;
+  function updateChart() {
+    buttons
+      .attr("aria-pressed", c => slots.has(c) ? "true" : "false")
+      .property("disabled", c => !slots.has(c) && slots.full())
+      .select(".swatch").style("background", c => slots.has(c) ? slots.color(c) : "none")
+      .style("border", c => slots.has(c) ? "none" : "var(--rule)");
+
+    const grouped = d3.groups(formatted.filter(d => slots.has(d.category)), d => d.category);
+    const maxCount = d3.max(grouped, ([, rows]) => d3.max(rows, d => d.count)) || 1000;
     yScale.domain([0, maxCount * 1.05]);
 
     xAxisG.call(d3.axisBottom(xScale).ticks(8).tickFormat(d3.timeFormat("%b %Y")));
-    yAxisG.call(d3.axisLeft(yScale).ticks(5).tickFormat(d3.format("~s")));
+    animate(yAxisG, firstDraw).call(d3.axisLeft(yScale).ticks(5).tickFormat(d3.format("~s")));
 
-    const lines = g.selectAll(".category-line")
-      .data(grouped, d => d[0]);
-
-    lines.exit().remove();
-
-    lines.enter()
-      .append("path")
+    linesG.selectAll(".category-line")
+      .data(grouped, d => d[0])
+      .join("path")
       .attr("class", "category-line")
       .attr("fill", "none")
-      .attr("stroke", d => d[0] === "FRAUD/IDENTITY" ? "var(--signal)" : "var(--bone-60)")
-      .attr("stroke-width", d => d[0] === "FRAUD/IDENTITY" ? 2 : 1.2)
-      .attr("opacity", d => d[0] === "FRAUD/IDENTITY" ? 1 : 0.6)
-      .merge(lines)
-      .transition()
-      .duration(250)
-      .attr("d", d => lineGen(d[1]));
+      .attr("stroke", d => slots.color(d[0]))
+      .attr("stroke-width", 2)
+      .call(sel => animate(sel, firstDraw).attr("d", d => lineGen(d[1])));
+
+    // Direct labels at line ends (name + last value), nudged apart so they never overlap.
+    const ends = grouped.map(([cat, rows]) => {
+      const last = rows[rows.length - 1];
+      return { cat, value: last.count, y: yScale(last.count) };
+    }).sort((p, q) => p.y - q.y);
+    const gap = fsLabel * 1.3;
+    ends.forEach((e, i) => { if (i > 0) e.y = Math.max(e.y, ends[i - 1].y + gap); });
+
+    labelsG.selectAll("text")
+      .data(ends, d => d.cat)
+      .join("text")
+      .attr("x", innerW + 8)
+      .attr("dy", "0.35em")
+      .attr("fill", d => slots.color(d.cat))
+      .style("font-weight", "700")
+      .text(d => `${d.cat} ${d3.format(",")(d.value)}`)
+      .call(sel => animate(sel, firstDraw).attr("y", d => d.y));
+    firstDraw = false;
   }
 
+  let firstDraw = true;
   updateChart();
 
   // Footer Caveat
@@ -174,7 +216,6 @@ export async function weekly(el, { data, lazy }) {
   const flagsData = data?.flags_monthly || (await lazy?.("flags_monthly")) || [];
 
   const dayNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-  const dayAbbr = ["M", "T", "W", "T", "F", "S", "S"];
 
   // Global Tooltip
   let tooltip = d3.select("body").select("#tooltip");
@@ -187,12 +228,12 @@ export async function weekly(el, { data, lazy }) {
 
   const wrapper = container.append("div")
     .style("display", "grid")
-    .style("grid-template-columns", "1fr 1fr")
+    .style("grid-template-columns", "1.4fr 1fr")
     .style("gap", "var(--s-4)")
     .style("width", "100%")
     .style("height", "100%");
 
-  // Left Panel: Day-of-Week Small Multiples
+  // Left Panel: one grouped day-of-week bar chart; checkboxes pick up to MAX_SERIES categories.
   const leftCol = wrapper.append("div")
     .style("display", "flex")
     .style("flex-direction", "column")
@@ -204,86 +245,95 @@ export async function weekly(el, { data, lazy }) {
     .attr("class", "caption")
     .style("margin-top", "var(--s-1)")
     .style("margin-bottom", "var(--s-2)")
-    .text("Share of each category's incidents by weekday. The 8 largest categories, in severity order.");
+    .text(`Incidents by weekday. Tick up to ${MAX_SERIES} categories to compare.`);
 
-  // ~8 panels fit one screen without scrolling (DESIGN.md: few series per chart).
-  const totals = d3.rollup(dowData, v => d3.sum(v, d => Number(d.count || 0)), d => d.category);
-  const top8 = new Set([...totals].sort((a, b) => b[1] - a[1]).slice(0, 8).map(d => d[0]));
-  const categories = CATEGORIES.filter(c => top8.has(c));
+  const present = new Set(dowData.map(d => d.category));
+  const categories = CATEGORIES.filter(c => present.has(c));
+  const slots = seriesSlots(["Larceny/Theft", "Simple Assault/Intimidation"].filter(c => present.has(c)));
+  const countOf = new Map(dowData.map(d => [`${d.category}|${d.dow}`, Number(d.count || 0)]));
 
-  const dowGrid = leftCol.append("div")
-    .style("display", "grid")
-    .style("grid-template-columns", "repeat(4, 1fr)")
-    .style("grid-template-rows", "repeat(2, 1fr)")
-    .style("gap", "var(--s-2)")
+  const body = leftCol.append("div")
     .style("flex", "1")
-    .style("min-height", "0");
+    .style("min-height", "0")
+    .style("display", "grid")
+    .style("grid-template-columns", "1fr auto")
+    .style("gap", "var(--s-2)");
 
-  categories.forEach(cat => {
-    const catRows = dowData.filter(d => d.category === cat);
-    const total = d3.sum(catRows, d => Number(d.count || 0)) || 1;
+  const plot = body.append("div").style("min-height", "0").style("position", "relative");
 
-    const card = dowGrid.append("div")
-      .style("background", "var(--surface)")
-      .style("padding", "var(--s-2)")
-      .style("display", "flex")
-      .style("flex-direction", "column")
-      .style("min-height", "0");
+  // Checkbox list (top-right). Each ticked box shows its series colour, so the list is the legend.
+  const picker = body.append("div")
+    .attr("class", "label")
+    .style("display", "flex")
+    .style("flex-direction", "column")
+    .style("gap", "2px");
+  const rows = picker.selectAll("label")
+    .data(categories)
+    .join("label")
+    .style("display", "flex")
+    .style("align-items", "center")
+    .style("gap", "var(--s-1)")
+    .style("cursor", "pointer");
+  const boxes = rows.append("input")
+    .attr("type", "checkbox")
+    .style("margin", "0")
+    .style("accent-color", "var(--bone)")
+    .on("change", (event, cat) => { slots.toggle(cat); drawDow(); });
+  rows.append("span").attr("class", "swatch").style("width", "0.8em").style("height", "0.8em");
+  rows.append("span").text(d => d);
 
-    card.append("div")
-      .attr("class", "label")
-      .style("margin-bottom", "var(--s-1)")
-      .text(cat);
+  const { width: pw = 400, height: ph = 300 } = plot.node().getBoundingClientRect();
+  const dowMargin = { top: 10, right: 10, bottom: 30, left: 50 };
+  const dowSvg = plot.append("svg").attr("width", pw).attr("height", ph);
+  const dowG = dowSvg.append("g").attr("transform", `translate(${dowMargin.left},${dowMargin.top})`);
+  const dowW = Math.max(50, pw - dowMargin.left - dowMargin.right);
+  const dowH = Math.max(50, ph - dowMargin.top - dowMargin.bottom);
+  const x0 = d3.scaleBand().domain(d3.range(7)).range([0, dowW]).paddingInner(0.2);
+  const yDow = d3.scaleLinear().range([dowH, 0]);
+  dowG.append("g").attr("class", "axis").attr("transform", `translate(0,${dowH})`)
+    .call(d3.axisBottom(x0).tickFormat(i => dayNames[i]).tickSizeOuter(0));
+  const yAxisDow = dowG.append("g").attr("class", "axis");
+  const barsG = dowG.append("g");
 
-    const plot = card.append("div").style("flex", "1").style("min-height", "0");
-    const { width: cardW = 110, height: cardH = 60 } = plot.node().getBoundingClientRect();
-    const labelH = 22;
-    const cardSvg = plot.append("svg")
-      .attr("width", cardW)
-      .attr("height", cardH);
+  function drawDow() {
+    rows.select("input")
+      .property("checked", c => slots.has(c))
+      .property("disabled", c => !slots.has(c) && slots.full());
+    rows.style("color", c => (!slots.has(c) && slots.full()) ? "var(--bone-35)" : "var(--bone)");
+    rows.select(".swatch")
+      .style("background", c => slots.has(c) ? slots.color(c) : "none")
+      .style("border", c => slots.has(c) ? "none" : "var(--rule)");
 
-    const xScale = d3.scaleBand().domain(d3.range(7)).range([0, cardW]).padding(0.2);
-    const maxShare = d3.max(catRows, d => Number(d.count || 0) / total) || 0.2;
-    const barH = Math.max(10, cardH - labelH);
-    const yScale = d3.scaleLinear().domain([0, maxShare]).range([barH, 0]);
+    // Raw counts on one shared axis (owner's decision); exact numbers are in the tooltip.
+    const picked = categories.filter(c => slots.has(c));
+    const x1 = d3.scaleBand().domain(picked).range([0, x0.bandwidth()]).padding(0.08);
+    const cells = d3.range(7).flatMap(dow => picked.map(cat => ({ dow, cat, count: countOf.get(`${cat}|${dow}`) || 0 })));
+    yDow.domain([0, (d3.max(cells, d => d.count) || 100) * 1.05]);
+    animate(yAxisDow, firstDow).call(d3.axisLeft(yDow).ticks(5).tickFormat(d3.format("~s")));
 
-    cardSvg.selectAll("rect")
-      .data(catRows)
-      .enter()
-      .append("rect")
-      .attr("x", d => xScale(d.dow))
-      .attr("y", d => yScale(Number(d.count || 0) / total))
-      .attr("width", xScale.bandwidth())
-      .attr("height", d => Math.max(0, barH - yScale(Number(d.count || 0) / total)))
-      .attr("fill", "var(--bone)")
+    barsG.selectAll("rect")
+      .data(cells, d => `${d.cat}|${d.dow}`)
+      .join("rect")
+      .attr("fill", d => slots.color(d.cat))
       .style("cursor", "pointer")
-      .on("mouseover", function (event, d) {
-        d3.select(this).attr("fill", "var(--signal)");
-        const sharePct = ((Number(d.count || 0) / total) * 100).toFixed(1);
+      .on("mouseover mousemove", (event, d) => {
+        const total = d3.sum(d3.range(7), i => countOf.get(`${d.cat}|${i}`) || 0) || 1;
         tooltip
-          .html(`<strong>${cat} (${dayNames[d.dow]})</strong><br/>Count: ${Number(d.count).toLocaleString()}<br/>Share: ${sharePct}%`)
-          .style("opacity", 1);
+          .html(`<strong>${d.cat}</strong><br/>${dayNames[d.dow]}: <strong>${d3.format(",")(d.count)}</strong> incidents<br/>${(d.count / total * 100).toFixed(1)}% of this category's week`)
+          .style("opacity", 1)
+          .style("left", (event.clientX + 12) + "px")
+          .style("top", (event.clientY - 28) + "px");
       })
-      .on("mousemove", function (event) {
-        tooltip
-          .style("left", (event.pageX + 12) + "px")
-          .style("top", (event.pageY - 28) + "px");
-      })
-      .on("mouseout", function () {
-        d3.select(this).attr("fill", "var(--bone)");
-        tooltip.style("opacity", 0);
-      });
-
-    cardSvg.selectAll(".day-label")
-      .data(d3.range(7))
-      .enter()
-      .append("text")
-      .attr("x", d => xScale(d) + xScale.bandwidth() / 2)
-      .attr("y", cardH - 4)
-      .attr("text-anchor", "middle")
-      .attr("fill", "var(--bone-60)")
-      .text(d => dayAbbr[d]);
-  });
+      .on("mouseout", () => tooltip.style("opacity", 0))
+      .call(sel => animate(sel, firstDow)
+        .attr("x", d => x0(d.dow) + x1(d.cat))
+        .attr("width", x1.bandwidth())
+        .attr("y", d => yDow(d.count))
+        .attr("height", d => dowH - yDow(d.count)));
+    firstDow = false;
+  }
+  let firstDow = true;
+  drawDow();
 
   // Right Panel: Tactical Flag Indicators
   const rightCol = wrapper.append("div")
@@ -368,7 +418,10 @@ export async function weekly(el, { data, lazy }) {
     g.append("g")
       .attr("class", "axis")
       .attr("transform", `translate(0,${innerH})`)
-      .call(d3.axisBottom(xScale).ticks(5).tickFormat(d3.timeFormat("%b %Y")));
+      // Quarterly ticks in a short format, thinned to what fits (each label ≈ 7 chars at --fs-label).
+      .call(d3.axisBottom(xScale)
+        .ticks(d3.timeMonth.every(innerW / (Math.max(11, window.innerWidth * 0.00833) * 0.62 * 7 + 24) >= 10 ? 3 : 6))
+        .tickFormat(d3.timeFormat("%b '%y")));
 
     g.append("g")
       .attr("class", "axis")

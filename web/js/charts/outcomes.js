@@ -5,6 +5,7 @@
  */
 
 import * as d3 from "https://cdn.jsdelivr.net/npm/d3@7.9.0/+esm";
+import { sankey, sankeyLeft, sankeyLinkHorizontal } from "https://cdn.jsdelivr.net/npm/d3-sankey@0.12.3/+esm";
 
 /**
  * Screen 1: Outcome Breakdown by Category (100% Stacked Bar)
@@ -219,15 +220,9 @@ export async function funnel(el, { data, lazy }) {
   container.html("");
 
   const rawData = data?.outcome_funnel || (await lazy?.("outcome_funnel")) || [];
+  const stage = Object.fromEntries((Array.isArray(rawData) ? rawData : []).map(d => [d.stage, Number(d.count || 0)]));
 
-  // Global Tooltip
   let tooltip = d3.select("body").select("#tooltip");
-  if (tooltip.empty()) {
-    tooltip = d3.select("body").append("div")
-      .attr("id", "tooltip")
-      .attr("class", "tooltip")
-      .style("opacity", 0);
-  }
 
   const wrapper = container.append("div")
     .style("display", "flex")
@@ -238,187 +233,118 @@ export async function funnel(el, { data, lazy }) {
 
   const header = wrapper.append("div");
   header.append("p").attr("class", "label").text("08 · OUTCOMES");
-  header.append("h2").text("Case Clearance & Prosecution Funnel");
+  header.append("h2").text("What happens after a report");
   header.append("p")
     .attr("class", "caption")
     .style("margin-top", "var(--s-1)")
-    .text("Progressive case attrition from initial report through investigation, arrest, and DA/CA filing.");
+    .text("Where reported cases end up. Clearance cohort: cases at least 180 days old at the snapshot.");
 
-  // Inspector Banner
-  const statsBanner = wrapper.append("div")
-    .style("background", "var(--surface)")
-    .style("border", "var(--rule)")
-    .style("padding", "var(--s-2) var(--s-3)")
-    .style("display", "flex")
-    .style("justify-content", "space-between")
-    .style("align-items", "center")
-    .style("font-family", "var(--font-mono)")
-    .style("font-size", "var(--fs-small)");
-
-  const funnelData = Array.isArray(rawData) ? rawData : [];
-  const mainStages = funnelData.filter(d => d.stage !== "Rejected");
-  const rejectedStage = funnelData.find(d => d.stage === "Rejected");
-  const baseCount = mainStages[0]?.count || 1;
-
-  function updateBanner(d, pctOfTotal, stepRetention) {
-    if (!d) {
-      statsBanner.html(`
-        <span class="label">FUNNEL INSPECTOR:</span>
-        <span style="color:var(--bone-60);">Hover over any stage to inspect case retention and conversion rates.</span>
-      `);
-    } else {
-      statsBanner.html(`
-        <div>
-          <span class="label">FUNNEL STAGE:</span>
-          <strong style="color:var(--bone); margin-left:4px;">${d.stage.toUpperCase()}</strong>
-        </div>
-        <div>
-          <span class="label">INCIDENTS:</span>
-          <strong class="num" style="margin-left:4px; color:var(--bone);">${d3.format(",")(d.count)}</strong>
-          <span class="label" style="margin-left:12px;">TOTAL SHARE:</span>
-          <strong class="num signal" style="margin-left:4px;">${pctOfTotal}%</strong>
-          ${stepRetention ? `<span class="label" style="margin-left:12px;">RETENTION:</span> <strong class="num" style="margin-left:4px; color:var(--bone);">${stepRetention}%</strong>` : ''}
-        </div>
-      `);
-    }
+  // The 5 stage totals form a tree (CONTEXT_NIBRS.md PROSECUTION_STAGE): Filed is a subset of
+  // Cleared by Arrest, Rejected a subset of Cleared Other. The remainders are derived here.
+  const reported = stage["Reported"] || 0;
+  const arrest = stage["Cleared by Arrest"] || 0;
+  const other = (stage["Cleared"] || 0) - arrest;
+  const filed = stage["Filed"] || 0;
+  const rejected = stage["Rejected"] || 0;
+  const flows = [
+    ["Reported", "Cleared by arrest", arrest],
+    ["Reported", "Cleared other", other],
+    ["Reported", "Not cleared", reported - (stage["Cleared"] || 0)],
+    ["Cleared by arrest", "Filed", filed],
+    ["Cleared by arrest", "No filing recorded", arrest - filed],
+    ["Cleared other", "Rejected by DA/CA", rejected],
+    ["Cleared other", "Other clearance", other - rejected],
+  ];
+  if (!reported || flows.some(f => f[2] < 0)) {
+    wrapper.append("p").attr("class", "caption").text("Outcome data is missing or inconsistent; see #about.");
+    return;
   }
-  updateBanner(null);
+
+  // The story path is red: Reported -> Cleared by arrest -> Filed. Everything else is bone.
+  const storyNodes = new Set(["Reported", "Cleared by arrest", "Filed"]);
+  const isStory = l => storyNodes.has(l.source.name) && storyNodes.has(l.target.name);
 
   const chartBox = wrapper.append("div")
     .style("flex", "1")
     .style("min-height", "0")
-    .style("background", "var(--surface)")
-    .style("border", "var(--rule)")
-    .style("padding", "var(--s-3)")
-    .style("position", "relative")
-    .style("display", "flex")
-    .style("flex-direction", "column")
-    .style("justify-content", "center")
-    .style("overflow", "hidden");
+    .style("position", "relative");
 
-  const bbox = chartBox.node()?.getBoundingClientRect() || {};
-  const width = bbox.width || 800;
-  const height = bbox.height || 360;
-
-  const margin = { left: 190, right: 280, top: 30, bottom: 20 };
-  const maxBarWidth = Math.max(100, width - margin.left - margin.right);
-
-  const xScale = d3.scaleLinear().domain([0, baseCount]).range([0, maxBarWidth]);
-  // "Filed" is the punchline, so it is the one red stage (DESIGN.md: red is a signal).
-  const stageColors = ["var(--bone)", "var(--bone-60)", "var(--bone-35)", "var(--signal)"];
+  const { width = 900, height = 420 } = chartBox.node().getBoundingClientRect();
+  const k = Math.max(1, window.innerWidth / 1280);
+  const fsLabel = Math.max(11, window.innerWidth * 0.00833);
+  const names = ["Reported", "Cleared by arrest", "Cleared other", "Not cleared",
+    "Filed", "No filing recorded", "Rejected by DA/CA", "Other clearance"];
+  const pctOf = (v, base) => `${(v / base * 100).toFixed(1)}%`;
+  const nodeValue = n => n === "Reported" ? reported : d3.sum(flows.filter(f => f[1] === n), f => f[2]);
+  const numbers = n => `  ${d3.format(",")(nodeValue(n))} · ${pctOf(nodeValue(n), reported)}`;
+  // Margins fit the longest label on each side (mono ≈ 0.62em/char at --fs-label, bold name a little wider).
+  const textW = n => (n.length * 1.05 + numbers(n).length) * fsLabel * 0.62 + 10;
+  const margin = { top: 10, right: d3.max(names.slice(1), textW), bottom: 10, left: textW("Reported") };
+  const graph = sankey()
+    .nodeId(d => d.name)
+    .nodeWidth(14 * k)
+    .nodePadding(22 * k)
+    .nodeSort(null) // keep the input order so the story path sits on top
+    .nodeAlign(sankeyLeft) // "Not cleared" stays beside the other first outcomes, not pushed to the end
+    .extent([[margin.left, margin.top], [width - margin.right, height - margin.bottom]])({
+      nodes: names.map(name => ({ name })),
+      links: flows.map(([source, target, value]) => ({ source, target, value })),
+    });
 
   const svg = chartBox.append("svg")
-    .attr("width", "100%")
-    .attr("height", "100%")
-    .attr("viewBox", `0 0 ${width} ${height}`);
+    .attr("width", width)
+    .attr("height", height);
 
-  const rowGap = (height - margin.top - margin.bottom) / mainStages.length;
+  const tip = (event, html) => tooltip.html(html).style("opacity", 1)
+    .style("left", (event.clientX + 14) + "px").style("top", (event.clientY - 28) + "px");
+  const hide = () => tooltip.style("opacity", 0);
 
-  // Render Flat 2D Funnel Stages
-  mainStages.forEach((d, i) => {
-    const yPos = margin.top + i * rowGap;
-    const barW = Math.max(12, xScale(d.count));
-    const pctOfTotal = ((d.count / baseCount) * 100).toFixed(1);
+  svg.append("g")
+    .attr("fill", "none")
+    .selectAll("path")
+    .data(graph.links)
+    .join("path")
+    .attr("d", sankeyLinkHorizontal())
+    .attr("stroke", l => isStory(l) ? "var(--signal)" : "var(--bone)")
+    .attr("stroke-opacity", l => isStory(l) ? 0.7 : 0.18)
+    .attr("stroke-width", l => Math.max(1, l.width))
+    .style("cursor", "pointer")
+    .on("mouseover mousemove", (event, l) => tip(event, `
+      <strong>${l.source.name} → ${l.target.name}</strong><br/>
+      <strong>${d3.format(",")(l.value)}</strong> cases<br/>
+      ${pctOf(l.value, l.source.value)} of ${l.source.name.toLowerCase()} · ${pctOf(l.value, reported)} of reported`))
+    .on("mouseout", hide);
 
-    const prevCount = i > 0 ? mainStages[i - 1].count : null;
-    const stepRetention = prevCount ? ((d.count / prevCount) * 100).toFixed(1) : null;
+  const node = svg.append("g")
+    .selectAll("g")
+    .data(graph.nodes)
+    .join("g");
 
-    // Stage Title
-    svg.append("text")
-      .attr("x", margin.left - 16)
-      .attr("y", yPos + 20)
-      .attr("text-anchor", "end")
-      .attr("fill", "var(--bone)")
-      .style("font-size", "var(--fs-small)")
-      .style("font-family", "var(--font-mono)")
-      .style("font-weight", "700")
-      .text(d.stage.toUpperCase());
+  node.append("rect")
+    .attr("x", d => d.x0)
+    .attr("y", d => d.y0)
+    .attr("width", d => d.x1 - d.x0)
+    .attr("height", d => Math.max(1, d.y1 - d.y0))
+    .attr("fill", d => d.name === "Filed" ? "var(--signal-fill)" : "var(--bone)")
+    .on("mouseover mousemove", (event, d) => tip(event, `
+      <strong>${d.name}</strong><br/>
+      <strong>${d3.format(",")(d.value)}</strong> cases · ${pctOf(d.value, reported)} of reported`))
+    .on("mouseout", hide);
 
-    // Stage Bar
-    svg.append("rect")
-      .attr("x", margin.left)
-      .attr("y", yPos)
-      .attr("width", barW)
-      .attr("height", 30)
-      .attr("fill", stageColors[i % stageColors.length])
-      .attr("rx", 2)
-      .style("cursor", "pointer")
-      .on("mouseover", function() {
-        updateBanner(d, pctOfTotal, stepRetention);
-        tooltip.html(`
-          <strong style="color:var(--bone);">${d.stage} Stage</strong><br/>
-          Incidents: <strong>${d3.format(",")(d.count)}</strong><br/>
-          Share of Total: <strong style="color:var(--signal);">${pctOfTotal}%</strong>
-          ${stepRetention ? `<br/>Step Retention: <strong>${stepRetention}%</strong>` : ''}
-        `).style("opacity", 1);
-      })
-      .on("mousemove", event => {
-        tooltip
-          .style("left", (event.clientX + 14) + "px")
-          .style("top", (event.clientY - 28) + "px");
-      })
-      .on("mouseout", () => {
-        updateBanner(null);
-        tooltip.style("opacity", 0);
-      });
-
-    // Step Retention Dashed Vertical Connector
-    if (i < mainStages.length - 1) {
-      svg.append("line")
-        .attr("x1", margin.left + 16)
-        .attr("x2", margin.left + 16)
-        .attr("y1", yPos + 30)
-        .attr("y2", yPos + rowGap)
-        .attr("stroke", "var(--hairline)")
-        .attr("stroke-width", 2)
-        .attr("stroke-dasharray", "3,3");
-    }
-
-    // Callout Text Label
-    const labelGroup = svg.append("text")
-      .attr("x", margin.left + barW + 14)
-      .attr("y", yPos + 20)
-      .style("font-family", "var(--font-mono)")
-      .style("font-size", "var(--fs-label)");
-
-    labelGroup.append("tspan")
-      .attr("fill", "var(--bone)")
-      .style("font-weight", "700")
-      .text(d3.format(",")(d.count));
-
-    labelGroup.append("tspan")
-      .attr("fill", "var(--bone-60)")
-      .text(` (${pctOfTotal}%)`);
-
-    if (stepRetention) {
-      labelGroup.append("tspan")
-        .attr("fill", "var(--bone-60)")
-        .style("font-weight", "600")
-        .text(`  •  ${stepRetention}% retention`);
-    }
-  });
-
-  if (rejectedStage) {
-    const arrestStage = mainStages.find(s => s.stage === "Cleared by Arrest") || mainStages[2];
-    const rejPct = arrestStage ? ((rejectedStage.count / arrestStage.count) * 100).toFixed(1) : "18.1";
-
-    const alertBox = wrapper.append("div")
-      .style("background", "var(--surface)")
-      .style("padding", "var(--s-2) var(--s-3)")
-      .style("display", "flex")
-      .style("justify-content", "space-between")
-      .style("align-items", "center")
-      .style("font-family", "var(--font-mono)");
-
-    alertBox.html(`
-      <div style="display:flex; align-items:center; gap:var(--s-1);">
-        <span class="label">PROSECUTORIAL REJECTIONS (DA / CA)</span>
-      </div>
-      <div style="font-size:var(--fs-label); color:var(--bone); font-weight:600;">
-        ${d3.format(",")(rejectedStage.count)} cases <span style="font-size:var(--fs-small); color:var(--bone-60); font-weight:normal;">(${rejPct}% of cleared arrests rejected)</span>
-      </div>
-    `);
-  }
+  // Direct labels: the first column to the left of its node, the others to the right.
+  node.append("text")
+    .attr("x", d => d.depth === 0 ? d.x0 - 8 : d.x1 + 8)
+    .attr("y", d => (d.y0 + d.y1) / 2)
+    .attr("dy", "0.35em")
+    .attr("text-anchor", d => d.depth === 0 ? "end" : "start")
+    .attr("fill", "var(--bone)")
+    .style("paint-order", "stroke")
+    .style("stroke", "var(--bg)")
+    .style("stroke-width", "3px")
+    .style("pointer-events", "none")
+    .call(t => t.append("tspan").style("font-weight", "700").text(d => d.name))
+    .call(t => t.append("tspan").attr("class", "num").attr("fill", "var(--bone-60)")
+      .text(d => numbers(d.name)));
 }
 
 /**
@@ -488,27 +414,13 @@ export async function lag(el, { data, lazy }) {
   }
   updateBanner(null);
 
-  // Main 2-Column Grid Layout
-  const gridBox = wrapper.append("div")
+  const chartBox = wrapper.append("div")
     .style("flex", "1")
     .style("min-height", "0")
-    .style("display", "grid")
-    .style("grid-template-columns", "1fr 280px")
-    .style("gap", "var(--s-2)")
-    .style("overflow", "hidden");
-
-  const chartBox = gridBox.append("div")
     .style("background", "var(--surface)")
-    .style("border", "var(--rule)")
     .style("padding", "var(--s-2)")
     .style("position", "relative")
     .style("overflow", "hidden");
-
-  const summaryBox = gridBox.append("div")
-    .style("display", "flex")
-    .style("flex-direction", "column")
-    .style("gap", "var(--s-2)")
-    .style("justify-content", "center");
 
   const lagData = (Array.isArray(rawData) ? rawData : []).slice().sort((a, b) => Number(b.median || 0) - Number(a.median || 0));
 
@@ -516,15 +428,12 @@ export async function lag(el, { data, lazy }) {
   const width = bbox.width || 540;
   const height = bbox.height || 340;
 
-  /**
-   * Layout Horizontal Geometry:
-   * 0px  -> 175px: Category Text (Right-Aligned at 175px)
-   * 175px -> 185px: Gutter Gap (10px)
-   * 185px -> 235px: Badge Box Pill (50px wide)
-   * 235px -> 260px: Separation Gutter (25px)
-   * 260px -> width: Plot Canvas Area
-   */
-  const margin = { top: 20, right: 25, bottom: 35, left: 260 };
+  // Label column fits the longest category at --fs-small (mono ≈ 0.62em/char), then a median badge.
+  const fsSmall = Math.max(12, window.innerWidth * 0.009);
+  const labelW = (d3.max(lagData, d => d.category.length) || 20) * fsSmall * 0.62;
+  const badgeW = fsSmall * 4.5;
+  const gutter = fsSmall;
+  const margin = { top: 10, right: 30, bottom: 35, left: labelW + badgeW + gutter * 2 };
 
   const svg = chartBox.append("svg")
     .attr("width", "100%")
@@ -536,140 +445,107 @@ export async function lag(el, { data, lazy }) {
     .range([margin.top, height - margin.bottom])
     .padding(0.24);
 
-  const maxVal = d3.max(lagData, d => Number(d.p90 || d.q3 || 10)) || 50;
-
-  // Square Root Scale expands the 0-5 day region
-  const xScale = d3.scaleSqrt()
-    .domain([0, Math.max(50, maxVal)])
+  // Domain runs to the longest 90th percentile so the whiskers use the full plot width.
+  const maxVal = d3.max(lagData, d => Number(d.p90 || d.q3 || 0)) || 50;
+  const xScale = d3.scaleSqrt() // sqrt spreads out the 0-5 day region where most medians sit
+    .domain([0, maxVal])
     .range([margin.left, width - margin.right]);
 
-  // X Axis Ticks
-  const xAxis = d3.axisBottom(xScale)
-    .tickValues([0, 1, 2, 5, 10, 20, 30, 50])
-    .tickFormat(d => `${d}d`);
-
+  const ticks = [0, 1, 2, 5, 10, 20, 50, 100, 200, 365].filter(t => t <= maxVal);
   svg.append("g")
-    .attr("class", "axis")
+    .attr("class", "axis grid")
     .attr("transform", `translate(0, ${height - margin.bottom})`)
-    .call(xAxis);
+    .call(d3.axisBottom(xScale).tickValues(ticks).tickFormat(d => `${d}d`).tickSize(-(height - margin.top - margin.bottom)))
+    .call(g => g.select(".domain").remove());
 
-  // Box Plot Rows
+  const showTip = (event, d) => {
+    updateBanner(d);
+    tooltip.html(`
+      <strong style="color:var(--bone);">${d.category}</strong><br/>
+      Median lag: <strong>${Number(d.median || 0)} days</strong><br/>
+      Middle half (Q1–Q3): <strong>${Number(d.q1 || 0)}–${Number(d.q3 || 0)} days</strong><br/>
+      90th percentile: <strong>${Number(d.p90 || 0)} days</strong><br/>
+      Mean: <strong>${Number(d.mean || 0).toFixed(1)} days</strong><br/>
+      Incidents: <strong>${d3.format(",")(Number(d.count || 0))}</strong>
+    `).style("opacity", 1)
+      .style("left", (event.clientX + 14) + "px")
+      .style("top", (event.clientY - 28) + "px");
+  };
+  const hideTip = () => { updateBanner(null); tooltip.style("opacity", 0); };
+
   lagData.forEach(d => {
-    const yCenter = yScale(d.category) + yScale.bandwidth() / 2;
-    const q1Val = Number(d.q1 || 0);
+    const y0 = yScale(d.category);
+    const yCenter = y0 + yScale.bandwidth() / 2;
+    const q1X = xScale(Number(d.q1 || 0));
     const medVal = Number(d.median || 0);
-    const q3Val = Number(d.q3 || 0);
-
-    const q1X = xScale(q1Val);
     const medX = xScale(medVal);
-    const q3X = xScale(q3Val);
+    const q3X = xScale(Number(d.q3 || 0));
+    const p90X = xScale(Number(d.p90 || d.q3 || 0));
 
+    // Only the long-lag outlier (median > 7 days, Fraud/Identity) is red.
     let barColor = "var(--bone)";
     if (medVal >= 1 && medVal <= 7) barColor = "var(--bone-60)";
     else if (medVal > 7) barColor = "var(--signal)";
 
-    // Category Text Label (Right aligned at x = 175px)
-    svg.append("text")
-      .attr("x", 175)
-      .attr("y", yCenter + 3)
+    const row = svg.append("g")
+      .style("cursor", "pointer")
+      .on("mouseover", event => showTip(event, d))
+      .on("mousemove", event => showTip(event, d))
+      .on("mouseout", hideTip);
+
+    // Hit area across the whole row so the tooltip works on thin boxes too.
+    row.append("rect")
+      .attr("x", 0).attr("y", y0)
+      .attr("width", width).attr("height", yScale.bandwidth())
+      .attr("fill", "transparent");
+
+    row.append("text")
+      .attr("x", labelW)
+      .attr("y", yCenter)
+      .attr("dy", "0.35em")
       .attr("text-anchor", "end")
       .attr("fill", "var(--bone)")
       .style("font-size", "var(--fs-small)")
-      .style("font-family", "var(--font-mono)")
       .text(d.category);
 
-    // Median Badge Column (Strict bounds: x = 185px to x = 235px)
-    const badgeG = svg.append("g")
-      .attr("transform", `translate(185, ${yScale(d.category) + 1})`);
-
-    badgeG.append("rect")
-      .attr("width", 50)
-      .attr("height", yScale.bandwidth() - 2)
-      .attr("fill", "var(--surface)")
-      .attr("stroke", barColor)
-      .attr("stroke-width", 1)
-      .attr("rx", 2);
-
-    badgeG.append("text")
-      .attr("x", 25)
-      .attr("y", (yScale.bandwidth() - 2) / 2 + 3)
+    row.append("text")
+      .attr("x", labelW + gutter + badgeW / 2)
+      .attr("y", yCenter)
+      .attr("dy", "0.35em")
       .attr("text-anchor", "middle")
-      .attr("fill", barColor)
-      .style("font-size", "var(--fs-label)")
-      .style("font-family", "var(--font-mono)")
+      .attr("class", "num")
+      .attr("fill", medVal > 7 ? "var(--bone)" : "var(--bone-60)")
       .style("font-weight", "700")
-      .text(`${medVal}d med`);
+      .text(`${medVal}d`);
 
-    // Whisker Line
-    svg.append("line")
-      .attr("x1", q1X).attr("x2", q3X)
+    // Whisker to the 90th percentile.
+    row.append("line")
+      .attr("x1", q1X).attr("x2", p90X)
       .attr("y1", yCenter).attr("y2", yCenter)
       .attr("stroke", "var(--bone-60)")
-      .attr("stroke-width", 1.5);
+      .attr("stroke-width", 1);
+    row.append("line")
+      .attr("x1", p90X).attr("x2", p90X)
+      .attr("y1", yCenter - yScale.bandwidth() / 4).attr("y2", yCenter + yScale.bandwidth() / 4)
+      .attr("stroke", "var(--bone-60)");
 
-    // IQR Box
-    const boxWidth = Math.max(4, q3X - q1X);
-    svg.append("rect")
+    // Q1-Q3 box, median line in --bg.
+    row.append("rect")
       .attr("x", q1X)
-      .attr("y", yScale(d.category))
-      .attr("width", boxWidth)
+      .attr("y", y0)
+      .attr("width", Math.max(4, q3X - q1X))
       .attr("height", yScale.bandwidth())
-      .attr("fill", barColor)
-      .attr("fill-opacity", 0.75)
-      .attr("rx", 2)
-      .style("cursor", "pointer")
-      .on("mouseover", function() {
-        updateBanner(d);
-        tooltip.html(`
-          <strong style="color:var(--bone);">${d.category}</strong><br/>
-          Median Lag: <strong style="color:var(--signal);">${medVal} days</strong><br/>
-          Q1 - Q3 IQR: <strong>${q1Val} - ${q3Val} days</strong><br/>
-          90th Percentile: <strong>${Number(d.p90 || 0)} days</strong><br/>
-          Mean Lag: <strong>${Number(d.mean || 0).toFixed(1)} days</strong>
-        `).style("opacity", 1);
-      })
-      .on("mousemove", event => {
-        tooltip
-          .style("left", (event.clientX + 14) + "px")
-          .style("top", (event.clientY - 28) + "px");
-      })
-      .on("mouseout", () => {
-        updateBanner(null);
-        tooltip.style("opacity", 0);
-      });
-
-    // Solid White/Bone Median Line
-    svg.append("line")
+      .attr("fill", barColor);
+    row.append("line")
       .attr("x1", medX).attr("x2", medX)
-      .attr("y1", yScale(d.category))
-      .attr("y2", yScale(d.category) + yScale.bandwidth())
+      .attr("y1", y0).attr("y2", y0 + yScale.bandwidth())
       .attr("stroke", "var(--bg)")
       .attr("stroke-width", 2);
   });
 
-  // Render Right Side Insight Cards
-  const maxDelayItem = lagData[0] || { category: "Fraud/Identity", median: 9 };
-  const sameDayItems = lagData.filter(d => Number(d.median || 0) === 0);
-
-  summaryBox.html(`
-    <div style="background:var(--surface); padding:var(--s-2) var(--s-3);">
-      <div class="label">LONGEST DELAY</div>
-      <div style="font-size:var(--fs-label); font-weight:700; color:var(--bone); font-family:var(--font-mono); margin-top:2px;">${maxDelayItem.category}</div>
-      <div class="caption" style="margin-top:4px;">Median <strong>${maxDelayItem.median} days</strong> reporting lag due to delayed bank/statement discovery.</div>
-    </div>
-
-    <div style="background:var(--surface); padding:var(--s-2) var(--s-3);">
-      <div class="label">IMMEDIATE REPORTING</div>
-      <div style="font-size:var(--fs-label); font-weight:700; color:var(--bone); font-family:var(--font-mono); margin-top:2px;">${sameDayItems.length} Crime Categories</div>
-      <div class="caption" style="margin-top:4px;">Violent & emergency crimes (Assault, Homicide, Robbery) have a median <strong>0-day lag</strong>.</div>
-    </div>
-
-    <div style="background:var(--surface); padding:var(--s-2) var(--s-3);">
-      <div class="label">PROPERTY CRIME LAG</div>
-      <div style="font-size:var(--fs-label); font-weight:700; color:var(--bone); font-family:var(--font-mono); margin-top:2px;">1 – 2 Days Median</div>
-      <div class="caption" style="margin-top:4px;">Vehicle thefts & burglaries reflect delayed discovery when owners return to property.</div>
-    </div>
-  `);
+  wrapper.append("p")
+    .attr("class", "caveat")
+    .text("Box = middle half of cases (Q1–Q3), dark line = median, whisker = 90th percentile. Bold number = median days.");
 }
 
 // Router Export Aliases

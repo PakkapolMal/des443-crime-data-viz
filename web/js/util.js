@@ -34,11 +34,11 @@ const tip = document.getElementById("tooltip");
 export const tooltip = {
   show(html, event) {
     tip.innerHTML = html;
-    tip.hidden = false;
+    tip.style.opacity = 1;
     tip.style.left = `${event.clientX + 12}px`;
     tip.style.top = `${event.clientY + 12}px`;
   },
-  hide() { tip.hidden = true; },
+  hide() { tip.style.opacity = 0; },
 };
 
 // Skeleton stand-in until a screen's real chart is built.

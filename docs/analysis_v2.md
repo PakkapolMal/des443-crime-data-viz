@@ -14,20 +14,20 @@ No code has changed for this review yet. Each item gives the screen, what it doe
 | # | Chapter / screen | Module | Status |
 |---|---|---|---|
 | 0 | Home / title | `index.html` | Deferred |
-| 1 | Home / KPI | `home.js` `kpi` | Ready (R2: sentence KPIs, left column) |
-| 2 | When / monthly | `trends.js` `monthly` | Ready (R2: Larceny/Theft vs Weapon Law) |
-| 3 | When / weekly + flags | `trends.js` `weekly` | Ready (R2: grouped bars, pick up to 3) |
+| 1 | Home / KPI | `home.js` `kpi` | Done (build 1) |
+| 2 | When / monthly | `trends.js` `monthly` | Done (build 1) |
+| 3 | When / weekly + flags | `trends.js` `weekly` | Done (build 1) |
 | 4 | Where / density map | `places.js` `map` | Approved |
-| 5 | Where / division bars + heatmap | `places.js` `areas` | Ready |
-| 6 | Where / top locations table | `places.js` `locations` | Ready |
-| 7 | Area profiles / scatter | `compare.js` `scatter` | Ready |
+| 5 | Where / division bars + heatmap | `places.js` `areas` | Done (build 1) |
+| 6 | Where / top locations table | `places.js` `locations` | Done (build 1) |
+| 7 | Area profiles / scatter | `compare.js` `scatter` | Done (build 1, via the tooltip fix) |
 | 8 | What / offense treemap | `offenses.js` `hierarchy` | Done (P1: red = violent crime) |
-| 9 | What / co-occurrence matrix | `offenses.js` `cooccurrence` | Ready |
-| 10 | How dangerous / weapon classes | `weapons.js` `weapons` | Ready |
+| 9 | What / co-occurrence matrix | `offenses.js` `cooccurrence` | Done (build 1) |
+| 10 | How dangerous / weapon classes | `weapons.js` `weapons` | Done (build 1) |
 | 11 | Who / age-sex pyramid | `victims.js` `pyramid` | Done (P1: --sex-m / --sex-f) |
 | 12 | Who / victim descent | `victims.js` `descent` | Approved |
-| 13 | What happens next / funnel | `outcomes.js` `funnel` | Ready (R2: Sankey) |
-| 14 | What happens next / reporting lag | `outcomes.js` `lag` | Ready |
+| 13 | What happens next / funnel | `outcomes.js` `funnel` | Done (build 1: Sankey) |
+| 14 | What happens next / reporting lag | `outcomes.js` `lag` | Done (build 1) |
 | 15 | About | `about.js` `about` | Deferred |
 
 ## Round 2 decisions (2026-10-24)
@@ -43,8 +43,8 @@ No code has changed for this review yet. Each item gives the screen, what it doe
 | New | Category wording: "Weapon Law" can mislead, and "Group B" means nothing to a lay audience. | Logged in `TASK.md`; see *Round 2 detail*. |
 
 ### P1: palette expansion (applied 2026-10-24)
-- **Tokens:** `--series-1..3` and `--sex-f/m` are in `tokens.css`, and the rules are in DESIGN.md â†’ *Categorical hues*.
-- **Treemap:** the top level is two blocks, "Violent crime" (red, `VIOLENT_CATEGORIES` in `util.js`) and "Other crime" (neutral). Each block's header carries its share ("VIOLENT Â· 13.0%", "OTHER CRIME Â· 87.0% OF OFFENSES"), so there is no legend row.
+- **Tokens:** `--series-1..3` and `--sex-f/m` are in `tokens.css`, and the rules are in DESIGN.md → *Categorical hues*.
+- **Treemap:** the top level is two blocks, "Violent crime" (red, `VIOLENT_CATEGORIES` in `util.js`) and "Other crime" (neutral). Each block's header carries its share ("VIOLENT · 13.0%", "OTHER CRIME · 87.0% OF OFFENSES"), so there is no legend row.
 - **Pyramid:** male bars are `--sex-m` and female bars `--sex-f`, with labels and totals in the matching hue.
 - **Known gaps:**
   - The treemap's 13.0% counts *offenses*. The KPI's 14.1% counts *incidents*. The four categories give 14.13% at the incident grain, so the definitions agree and the gap is the counting unit. Decided: keep 14.1%, and name the unit on both screens (KPI: "of reports"; treemap caption: "shares here are of offenses, not reports").
@@ -61,6 +61,19 @@ Original framing:
   - Each colour needs a contrast check on `--bg` and a projector rehearsal.
   - The red-as-signal rule stays. A categorical colour must not be red, or it competes with the highlight.
 - **Until P1 lands:** item 3 can ship with bone, bone-60 and bone-35, with direct labels or a legend in bone, and swap to the new tokens later.
+
+## Build 1 (2026-10-24): what was built, and where it differs from the plan
+- **Tooltip bug:** fixed once at the shared element. `#tooltip` loses its `hidden` attribute, and CSS starts it at `opacity: 0`, which the charts already toggle. `util.tooltip` uses opacity too.
+- **1 KPI:** five stacked number + sentence items on the left (only the first number is red), with the monthly line on the right. Axis labels are at `--fs-small`, and the plot is drawn at its measured size, so text is no longer stretched. The hard-coded fallback numbers and the fake fallback trend were removed; a missing value shows "–".
+- **2 Monthly:** first load shows Larceny/Theft vs Weapon Law, with direct labels at the line ends. **Differs from the plan:** the cap is **3** lines, not 6–8, using `--series-1..3`. DESIGN.md (P1) allows series hues for at most 3 viewer-picked series, and this matches the weekly chart. A category keeps its colour until it is switched off.
+- **3 Weekly:** grouped raw-count bars with 17 checkboxes (the list doubles as the legend). Larceny/Theft + Simple Assault/Intimidation are ticked on first load, and the boxes lock at 3. Flag-trend ticks are quarterly or half-yearly (whichever fits), in the form `Apr '24`, with no collisions at 1280 or 1920.
+- **5 Areas:** bars are half the row height. An 8-step ramp key under the heatmap reads "Low … High (N% of the division's incidents)".
+- **6 Locations:** 1px hairlines under the header and between rows (shared `.data-table` CSS).
+- **9 Co-occurrence:** pairs are mirrored and the diagonal is `--bg`. The tooltip text is no longer red.
+- **10 Weapons:** all bars start bone; red on hover only.
+- **13 Sankey:** `d3-sankey@0.12.3` (jsDelivr). Three columns, using the flow in *Round 2 detail*. The red story path is Reported → Cleared by arrest → Filed. Labels give the count and % of reported, and the tooltip on each link adds % of its source. The old rejection banner, and its wrong denominator, are gone.
+- **14 Lag:** the three cards are removed, and the chart takes the full width. Whiskers now run to p90 (as in TASK.md), and the axis runs to the longest p90 (178 days) with gridlines. The tooltip shows median, Q1–Q3, p90, mean and incident count. A one-line key explains box, line and whisker. The label column fits the longest name, so "Simple Assault/Intimidation" no longer overflows at 1920.
+- **Checks:** at 1280×720 and 1920×1080, no inner scroll, no text outside the content box, min font 11px / 16px, no console errors.
 
 ## Round 2 detail
 
@@ -81,21 +94,21 @@ Each KPI becomes a large number followed by a sentence that reads on from it. Va
 ### Item 13: Sankey flow (checked against `CONTEXT_NIBRS.md` `PROSECUTION_STAGE`)
 "Filed" comes only from *Cleared by Arrest* (DA/CA filed, CA hearing). "Rejected" comes only from *Cleared Other* (DA/CA reject). So the flow is a clean tree:
 ```
-Reported 344,331 â”€â”¬â”€ Not cleared        252,308
-                  â”œâ”€ Cleared by arrest   54,448 â”€â”¬â”€ Filed                15,251
-                  â”‚                              â””â”€ No filing recorded   39,197
-                  â””â”€ Cleared other       37,575 â”€â”¬â”€ Rejected by DA/CA     9,877
-                                                 â””â”€ Other clearance      27,698
+Reported 344,331 ─┬─ Not cleared        252,308
+                  ├─ Cleared by arrest   54,448 ─┬─ Filed                15,251
+                  │                              └─ No filing recorded   39,197
+                  └─ Cleared other       37,575 ─┬─ Rejected by DA/CA     9,877
+                                                 └─ Other clearance      27,698
 ```
 - **Library:** needs `d3-sankey` (separate from d3). Load a pinned version from jsDelivr like d3, and add it to the "save local copies" task.
 - **Bug in the current screen:** its banner divides Rejected by Cleared by Arrest ("% of cleared arrests rejected"). Rejected cases sit under Cleared Other, so that denominator is wrong. The Sankey replaces the banner, so the bug goes with it.
-- **Colour:** links in bone at low opacity. One red path is the story: Reported â†’ Cleared by arrest â†’ Filed.
+- **Colour:** links in bone at low opacity. One red path is the story: Reported → Cleared by arrest → Filed.
 
 ### Category wording (logged in TASK.md)
 | Category | Why it confuses | Candidate display label |
 |---|---|---|
 | Weapon Law | Reads as "a weapon was used". It actually means weapon-law violations (illegal possession, carrying). | "Weapon possession / weapon law violations" |
-| Group B | NIBRS jargon: offenses recorded only when an arrest is made (e.g. DUI, trespass, disorderly conduct, liquor law). | "Arrest-only offenses (DUI, trespassâ€¦)" |
+| Group B | NIBRS jargon: offenses recorded only when an arrest is made (e.g. DUI, trespass, disorderly conduct, liquor law). | "Arrest-only offenses (DUI, trespass…)" |
 | Other Group A | Same jargon. | "Other offenses" |
 | Unmapped | Internal pipeline term. | Hide, or "Unclassified" |
 - **Rename on screen only:** the JSON category values stay as they are, because CLAUDE.md says not to rename keys or values the D3 code depends on.
@@ -121,23 +134,23 @@ All answered 2026-10-24 (item 3: grouped, counts, Larceny/Theft + Simple Assault
   - An "Incidents per month" line underneath.
 - **Feedback:** it passes the minimum standard, but some numbers feel redundant.
 - **Open:** which numbers are redundant (see question Q1)? Possible readings:
-  - (a) KPIs that later chapters repeat in full (clearance â†’ #outcomes, firearm â†’ #weapons, DV â†’ flags on #trends);
+  - (a) KPIs that later chapters repeat in full (clearance → #outcomes, firearm → #weapons, DV → flags on #trends);
   - (b) the sub-captions under each value restating the number;
   - (c) the same totals appearing again on About.
 
 ### 2. Monthly trend (Ready, one input needed)
 - **Now:** all 17 categories draw at once in dim grey (1.2px, 60% opacity). The code means to highlight Fraud/Identity in red, but it compares against `"FRAUD/IDENTITY"` while the data says `"Fraud/Identity"`, so nothing is ever highlighted. Nothing labels the lines, so you can't tell which is which.
 - **Feedback:**
-  - Show only 1â€“2 lines on first load; viewers turn on more with the toggles.
+  - Show only 1–2 lines on first load; viewers turn on more with the toggles.
   - Make each line identifiable.
 - **Proposed:**
-  - Initial state: 1â€“2 categories active. Q2 asks which ones.
+  - Initial state: 1–2 categories active. Q2 asks which ones.
   - Direct label at the right end of every visible line (category name plus last value), following DESIGN.md "direct labels at line ends".
   - The highlighted line is red and 2px; other active lines are bone and 1px. A pressed toggle shows its state with `aria-pressed` and an underline, not colour alone.
-  - Cap active lines at about 6â€“8. Further toggles beyond that are refused with a short note, or the oldest one is switched off.
+  - Cap active lines at about 6–8. Further toggles beyond that are refused with a short note, or the oldest one is switched off.
 
 ### 3. Day-of-week small multiples + flag trend (Decide)
-- **Now:** the 8 highest-volume categories (Larceny/Theft through Fraud/Identity, by total incidents), in severity order on a 4Ã—2 grid. I picked 8 because DESIGN.md asks for about 6â€“8 series, and 8 panels fit the half-screen without scrolling.
+- **Now:** the 8 highest-volume categories (Larceny/Theft through Fraud/Identity, by total incidents), in severity order on a 4×2 grid. I picked 8 because DESIGN.md asks for about 6–8 series, and 8 panels fit the half-screen without scrolling.
 - **Feedback:**
   - The 8-of-17 criterion isn't clear.
   - The x-axis labels collide on the right-hand flag trend plot.
@@ -145,15 +158,15 @@ All answered 2026-10-24 (item 3: grouped, counts, Larceny/Theft + Simple Assault
 - **Options:** see decision D1.
 - **Flag plot fix (Ready):**
   - Fewer ticks, short format (`Apr '24`), or quarterly ticks.
-  - Check for no collisions at 1280Ã—720.
+  - Check for no collisions at 1280×720.
 
 ### 4. Geographic density map (Approved)
 - No change.
 
 ### 5. Divisions: total bars + category heatmap (Ready)
-- **Now:** 21 division bars on the left. On the right, a division Ã— category heatmap on the DESIGN ramp, with no colour key.
+- **Now:** 21 division bars on the left. On the right, a division × category heatmap on the DESIGN ramp, with no colour key.
 - **Feedback:**
-  - The heatmap is okay, but it needs a colour legend under the plot (low â†’ high).
+  - The heatmap is okay, but it needs a colour legend under the plot (low → high).
   - The bar list is too dense vertically and needs more space between rows.
 - **Proposed:**
   - A ramp legend under the heatmap: a continuous strip from `--ramp-0` to `--ramp-3`, end labels "Low" and "High share of division", and actual min/max % values.
@@ -208,11 +221,11 @@ All answered 2026-10-24 (item 3: grouped, counts, Larceny/Theft + Simple Assault
 - No change.
 
 ### 13. Outcome funnel (Decide, full rework)
-- **Now:** a 4-stage flat funnel: Reported 344k â†’ Cleared 92k â†’ Cleared by Arrest 54k â†’ Filed 15k. A separate banner shows Rejected (9.9k).
+- **Now:** a 4-stage flat funnel: Reported 344k → Cleared 92k → Cleared by Arrest 54k → Filed 15k. A separate banner shows Rejected (9.9k).
 - **Feedback:** it says nothing. Mark the whole screen for revision.
 - **Available data:**
   - `outcome_funnel.json`: the 5 stage totals.
-  - `outcome_by_cat.json`: outcome Ã— category, clearance cohort only.
+  - `outcome_by_cat.json`: outcome × category, clearance cohort only.
   - `outcomes.js` also contains an unused `outcomes()` screen (outcome mix by category with a legend) that index.html never shows.
 - **Options:** see decision D4.
 
@@ -223,7 +236,7 @@ All answered 2026-10-24 (item 3: grouped, counts, Larceny/Theft + Simple Assault
   - Extend the x-axis into the empty space on the right.
 - **Proposed:**
   - Delete the three cards. The chart takes the full width.
-  - The tooltip shows category, median, q1â€“q3 and n.
+  - The tooltip shows category, median, q1–q3 and n.
   - The x-axis range runs to the plot's right edge.
   - The Fraud/Identity highlight (median 9 days, the only category above 7) stays the single red mark.
 - **Depends on:** the cross-cutting tooltip fix.
@@ -236,9 +249,9 @@ All answered 2026-10-24 (item 3: grouped, counts, Larceny/Theft + Simple Assault
 ### D1: Which categories appear on the day-of-week screen (item 3)
 | Option | What the audience sees | Trade-off |
 |---|---|---|
-| **A. One heatmap: 17 categories Ã— 7 days** (recommended) | Every category in severity order, each row coloured by its own weekday share (DESIGN ramp) | All categories, one colour key, no selection logic to explain. You lose the bar-shape reading of the small multiples. |
-| B. All 17 small multiples, 6Ã—3 grid | Every category as a tiny bar chart | No selection, but panels get small at 1280Ã—720. |
-| C. Severity-based 8 | Homicide â†’ Larceny (the more serious half) | Easy to explain ("the 8 most serious"), but drops high-volume Simple Assault and Group B. |
+| **A. One heatmap: 17 categories × 7 days** (recommended) | Every category in severity order, each row coloured by its own weekday share (DESIGN ramp) | All categories, one colour key, no selection logic to explain. You lose the bar-shape reading of the small multiples. |
+| B. All 17 small multiples, 6×3 grid | Every category as a tiny bar chart | No selection, but panels get small at 1280×720. |
+| C. Severity-based 8 | Homicide → Larceny (the more serious half) | Easy to explain ("the 8 most serious"), but drops high-volume Simple Assault and Group B. |
 | D. Volume-based 8 (current) | The 8 largest categories | Easy to explain ("the 8 most common"), but drops Homicide, Robbery and Sex Offense. |
 
 ### D2: What treemap colour encodes (item 8)
@@ -253,7 +266,7 @@ All answered 2026-10-24 (item 3: grouped, counts, Larceny/Theft + Simple Assault
 | Option | Encoding | Notes |
 |---|---|---|
 | A. Blue / pink | Two hues | **Conflicts with DESIGN.md** ("No other hues") and plays on gender stereotypes. If chosen, add both colours to DESIGN.md and `tokens.css` as an explicit exception, check the contrast of both on `--bg`, and check how each reads on a projector. |
-| **B. Stronger structure, no new hue** (recommended) | Large direct labels "MALE â†" / "â†’ FEMALE" at the `--fs-h3` scale above each half. A visible centre spine with the age column. Male bone, female `--ramp-1` dark red with bone value labels (or the reverse). Totals per side. | Stays inside the palette. The separation comes from position and labels, which is what DESIGN.md prescribes for categories. |
+| **B. Stronger structure, no new hue** (recommended) | Large direct labels "MALE ←" / "→ FEMALE" at the `--fs-h3` scale above each half. A visible centre spine with the age column. Male bone, female `--ramp-1` dark red with bone value labels (or the reverse). Totals per side. | Stays inside the palette. The separation comes from position and labels, which is what DESIGN.md prescribes for categories. |
 | C. Two side-by-side bar charts sharing the age axis | Same data, not mirrored | Easiest to compare shapes, but loses the "pyramid" reading. |
 
 ### D4: What the outcomes screen should answer (item 13)
@@ -266,8 +279,8 @@ Pick the question first; the chart follows from it.
 
 ## Questions for the owner
 - **Q1 (item 1):** which KPI numbers are redundant: the ones later chapters repeat, the sub-captions, or something else?
-- **Q2 (item 2):** which 1â€“2 lines show on first load? Suggestion: Larceny/Theft (largest volume) plus one story line, such as the category with the largest change over the window.
-- **D1â€“D4** above.
+- **Q2 (item 2):** which 1–2 lines show on first load? Suggestion: Larceny/Theft (largest volume) plus one story line, such as the category with the largest change over the window.
+- **D1–D4** above.
 
 ## Build order once decisions land
 1. Tooltip bug (unblocks 7 and 14, and every hover).

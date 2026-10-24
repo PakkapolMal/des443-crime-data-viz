@@ -459,14 +459,18 @@ export async function areas(el, { data, lazy }) {
   // Size rows and margins to the box so every division fits one screen at any 16:9 size.
   const k = Math.max(1, window.innerWidth / 1280);
   const barsBoxRect = barsBox.node().getBoundingClientRect();
-  const hmMargin = { top: 105 * k, right: 20, bottom: 10, left: 105 * k };
+  const hmMargin = { top: 105 * k, right: 20, bottom: 44 * k, left: 105 * k }; // bottom holds the colour key
   const bannerAllowance = 44 * k;
   const rowH = Math.max(14, Math.floor((barsBoxRect.height - hmMargin.top - hmMargin.bottom - bannerAllowance) / summary.length));
   const barMax = Math.max(80, barsBoxRect.width - 105 * k - 70 * k);
 
+  // The bar list has no column labels or key above/below it, so it gets its own, taller row pitch
+  // (the heatmap keeps rowH). Bars stay half the row, leaving a clear gap between divisions.
+  const barRowH = Math.max(rowH, Math.floor((barsBoxRect.height - 10) / summary.length));
+
   const barSvg = barsBox.append("svg")
     .attr("width", "100%")
-    .attr("height", summary.length * rowH + 10);
+    .attr("height", summary.length * barRowH + 10);
 
   const maxTotal = summary[0]?.total || 30000;
   const barXScale = d3.scaleLinear().domain([0, maxTotal]).range([0, barMax]);
@@ -476,7 +480,7 @@ export async function areas(el, { data, lazy }) {
     .enter()
     .append("g")
     .attr("class", "area-bar-row")
-    .attr("transform", (d, i) => `translate(0, ${i * rowH})`)
+    .attr("transform", (d, i) => `translate(0, ${i * barRowH})`)
     .style("cursor", "pointer")
     .on("click", function (event, d) {
       selectedArea = selectedArea === d.area ? null : d.area;
@@ -485,7 +489,7 @@ export async function areas(el, { data, lazy }) {
 
   barRows.append("text")
     .attr("x", 95 * k)
-    .attr("y", rowH * 0.72)
+    .attr("y", barRowH * 0.72)
     .attr("text-anchor", "end")
     .attr("fill", "var(--bone)")
     .style("font-size", "var(--fs-small)")
@@ -494,14 +498,14 @@ export async function areas(el, { data, lazy }) {
   barRows.append("rect")
     .attr("class", "area-bar")
     .attr("x", 105 * k)
-    .attr("y", rowH * 0.1)
+    .attr("y", barRowH * 0.25)
     .attr("width", d => Math.max(0, barXScale(Number(d.total || 0))))
-    .attr("height", rowH * 0.75)
+    .attr("height", barRowH * 0.5) // half-height bars leave a visible gap between divisions
     .attr("fill", "var(--bone)");
 
   barRows.append("text")
     .attr("x", d => 112 * k + barXScale(Number(d.total || 0)))
-    .attr("y", rowH * 0.68)
+    .attr("y", barRowH * 0.68)
     .attr("fill", "var(--bone-60)")
     .style("font-size", "var(--fs-label)")
     .text(d => d3.format(",")(Number(d.total || 0)));
@@ -630,6 +634,29 @@ export async function areas(el, { data, lazy }) {
       updateHeatmapStats(null);
       tooltip.style("opacity", 0);
     });
+
+  // Colour key under the heatmap: the ramp in 8 steps, from the lowest to the highest row share.
+  const keySteps = d3.range(8).map(i => i / 7);
+  const keyW = Math.min(xScale.range()[1], 240 * k);
+  const keyY = summary.length * rowH + 14 * k;
+  const key = hmG.append("g").attr("transform", `translate(0, ${keyY})`);
+  key.selectAll("rect")
+    .data(keySteps)
+    .join("rect")
+    .attr("x", (d, i) => i * keyW / keySteps.length)
+    .attr("width", keyW / keySteps.length)
+    .attr("height", 10 * k)
+    .attr("fill", d => ramp(d));
+  key.append("text")
+    .attr("y", 10 * k + 14 * k)
+    .attr("fill", "var(--bone-60)")
+    .text("Low");
+  key.append("text")
+    .attr("x", keyW)
+    .attr("y", 10 * k + 14 * k)
+    .attr("text-anchor", "end")
+    .attr("fill", "var(--bone-60)")
+    .text(`High (${(maxShare * 100).toFixed(0)}% of the division's incidents)`);
 
   function updateHighlights() {
     barRows.selectAll(".area-bar")

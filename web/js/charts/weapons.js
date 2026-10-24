@@ -143,7 +143,7 @@ export async function weapons(el, { data, lazy }) {
     .attr("x", margin.left)
     .attr("height", yScale.bandwidth())
     .attr("width", d => Math.max(0, xScale(d.count) - margin.left))
-    .attr("fill", d => d.weaponClass === "Firearm" ? "var(--signal)" : "var(--bone)")
+    .attr("fill", "var(--bone)")
     .style("cursor", "pointer")
     .on("mouseover", function (event, d) {
       d3.select(this).attr("fill", "var(--signal)");
@@ -162,7 +162,7 @@ export async function weapons(el, { data, lazy }) {
         .style("top", (event.clientY - 28) + "px");
     })
     .on("mouseout", function (event, d) {
-      d3.select(this).attr("fill", d.weaponClass === "Firearm" ? "var(--signal)" : "var(--bone)");
+      d3.select(this).attr("fill", "var(--bone)");
       updateBanner(null);
       tooltip.style("opacity", 0);
     });

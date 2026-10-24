@@ -397,9 +397,22 @@ export async function cooccurrence(el, { data, lazy }) {
     .style("font-family", "var(--font-mono)")
     .text(d => d);
 
+  // The file holds each unordered pair once (source < target). Mirror it so the matrix is
+  // colour-symmetric, and draw the diagonal (a category with itself) as plain --bg.
+  const pairs = rawData.flatMap(d => [d, { ...d, source: d.target || d.cat2, target: d.source || d.cat1 }]);
+  g.selectAll(".diag")
+    .data(items)
+    .enter()
+    .append("rect")
+    .attr("x", d => xScale(d))
+    .attr("y", d => yScale(d))
+    .attr("width", xScale.bandwidth())
+    .attr("height", yScale.bandwidth())
+    .attr("fill", "var(--bg)");
+
   // Matrix Rectangles
   g.selectAll(".cell")
-    .data(rawData)
+    .data(pairs)
     .enter()
     .append("rect")
     .attr("class", "cell")
@@ -414,7 +427,7 @@ export async function cooccurrence(el, { data, lazy }) {
       tooltip.html(`
         <strong style="color:var(--bone);">Co-occurrence Pair</strong><br/>
         ${d.source || d.cat1} + ${d.target || d.cat2}<br/>
-        Incidents: <strong style="color:var(--signal);">${d3.format(",")(Number(d.value || d.count || 0))}</strong>
+        Incidents: <strong>${d3.format(",")(Number(d.value || d.count || 0))}</strong>
       `).style("opacity", 1);
     })
     .on("mousemove", event => {

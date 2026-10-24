@@ -61,10 +61,10 @@ python src/validate_nibrs.py       # re-derives totals from raw data and checks 
 To preview the dashboard locally, serve the repo root over HTTP. `d3.json` can't read files opened as `file://`.
 
 ```bash
-python -m http.server 8000
+python serve.py
 ```
 
-Then open http://localhost:8000/#home.
+Then open http://localhost:8001/#home. `serve.py` is `http.server` with `Cache-Control: no-store`, so the browser never mixes a stale `util.js` or `tokens.css` with newer chart modules.
 
 ## How the NIBRS data is shaped
 
