@@ -459,14 +459,11 @@ export async function areas(el, { data, lazy }) {
   // Size rows and margins to the box so every division fits one screen at any 16:9 size.
   const k = Math.max(1, window.innerWidth / 1280);
   const barsBoxRect = barsBox.node().getBoundingClientRect();
-  const hmMargin = { top: 105 * k, right: 20, bottom: 44 * k, left: 105 * k }; // bottom holds the colour key
-  const bannerAllowance = 44 * k;
-  const rowH = Math.max(14, Math.floor((barsBoxRect.height - hmMargin.top - hmMargin.bottom - bannerAllowance) / summary.length));
   const barMax = Math.max(80, barsBoxRect.width - 105 * k - 70 * k);
 
   // The bar list has no column labels or key above/below it, so it gets its own, taller row pitch
   // (the heatmap keeps rowH). Bars stay half the row, leaving a clear gap between divisions.
-  const barRowH = Math.max(rowH, Math.floor((barsBoxRect.height - 10) / summary.length));
+  const barRowH = Math.max(14, Math.floor((barsBoxRect.height - 10) / summary.length));
 
   const barSvg = barsBox.append("svg")
     .attr("width", "100%")
@@ -519,39 +516,19 @@ export async function areas(el, { data, lazy }) {
   rightCol.append("p").attr("class", "label").text("CATEGORY MIX");
   rightCol.append("h2").text("Area × Category Row Share Heatmap");
 
-  // Live Statistics Strip for Heatmap
-  const categoryStatsBanner = rightCol.append("div")
-    .style("background", "var(--surface)")
-    .style("border", "var(--rule)")
-    .style("padding", "var(--s-1) var(--s-2)")
-    .style("margin-top", "var(--s-1)")
-    .style("margin-bottom", "var(--s-2)")
-    .style("font-family", "var(--font-mono)")
-    .style("font-size", "var(--fs-small)");
-
-  function updateHeatmapStats(area, category, count, share) {
-    if (!area) {
-      categoryStatsBanner.html(`
-        <span class="label">STATISTICS INSPECTOR:</span>
-        <span style="color:var(--bone-60);">Hover over any heatmap cell to view proportional stats.</span>
-      `);
-    } else {
-      categoryStatsBanner.html(`
-        <span class="label">${area.toUpperCase()}</span> • <strong style="color:var(--bone);">${category}</strong>: 
-        <strong class="signal num" style="margin-left:4px;">${d3.format(",")(count)}</strong> cases 
-        <span style="color:var(--bone-60);">(${share}% of division total)</span>
-      `);
-    }
-  }
-  updateHeatmapStats(null);
-
   const heatmapBox = rightCol.append("div")
     .style("flex", "1")
     .style("min-height", "0")
     .style("overflow", "hidden")
     .style("position", "relative");
 
-  const hmBoxW = heatmapBox.node().getBoundingClientRect().width;
+  // Rows fill the heatmap box's measured height. Top margin fits the longest 45° category label
+  // (mono ≈ 0.62em/char at --fs-label, × sin 45°); bottom holds the colour key.
+  const { width: hmBoxW, height: hmBoxH } = heatmapBox.node().getBoundingClientRect();
+  const fsLabel = Math.max(11, window.innerWidth * 0.00833);
+  const longestCat = d3.max(categories, c => c.length) || 20;
+  const hmMargin = { top: longestCat * fsLabel * 0.62 * 0.71 + 12, right: 20, bottom: 44 * k, left: 105 * k };
+  const rowH = Math.max(14, Math.floor((hmBoxH - hmMargin.top - hmMargin.bottom) / summary.length));
   const cellWidth = Math.max(20, (hmBoxW - hmMargin.left - hmMargin.right - 60 * k) / categories.length);
   const hmWidth = categories.length * cellWidth + hmMargin.left + hmMargin.right;
   const hmHeight = summary.length * rowH + hmMargin.top + hmMargin.bottom;
@@ -621,7 +598,6 @@ export async function areas(el, { data, lazy }) {
     .style("cursor", "pointer")
     .on("mouseover", function (event, d) {
       const sharePct = (d.share * 100).toFixed(1);
-      updateHeatmapStats(d.area, d.category, d.count, sharePct);
       
       tooltip
         .html(`<strong>${d.area} Division</strong><br/>Category: ${d.category}<br/>Incidents: <strong>${d.count.toLocaleString()}</strong><br/>Row Share: <strong>${sharePct}%</strong>`)
@@ -631,15 +607,16 @@ export async function areas(el, { data, lazy }) {
       tooltip.style("left", (event.clientX + 14) + "px").style("top", (event.clientY - 28) + "px");
     })
     .on("mouseout", function () {
-      updateHeatmapStats(null);
       tooltip.style("opacity", 0);
     });
 
   // Colour key under the heatmap: the ramp in 8 steps, from the lowest to the highest row share.
+  // The key spans the heatmap grid exactly, from the first cell's left edge to the last cell's right edge.
   const keySteps = d3.range(8).map(i => i / 7);
-  const keyW = Math.min(xScale.range()[1], 240 * k);
+  const keyX0 = xScale(categories[0]);
+  const keyW = xScale(categories[categories.length - 1]) + xScale.bandwidth() - keyX0;
   const keyY = summary.length * rowH + 14 * k;
-  const key = hmG.append("g").attr("transform", `translate(0, ${keyY})`);
+  const key = hmG.append("g").attr("transform", `translate(${keyX0}, ${keyY})`);
   key.selectAll("rect")
     .data(keySteps)
     .join("rect")
