@@ -6,26 +6,6 @@
 
 import * as d3 from "https://cdn.jsdelivr.net/npm/d3@7.9.0/+esm";
 
-function getTooltip() {
-  let tooltip = d3.select("body").select(".chart-tooltip");
-  if (tooltip.empty()) {
-    tooltip = d3.select("body").append("div")
-      .attr("class", "chart-tooltip")
-      .style("position", "absolute")
-      .style("background", "var(--bg-card, #0f172a)")
-      .style("border", "1px solid var(--accent, #38bdf8)")
-      .style("color", "var(--text, #f8fafc)")
-      .style("padding", "0.4rem 0.65rem")
-      .style("border-radius", "6px")
-      .style("font-size", "0.75rem")
-      .style("pointer-events", "none")
-      .style("opacity", 0)
-      .style("z-index", "1000")
-      .style("box-shadow", "0 10px 25px -5px rgba(0,0,0,0.6)");
-  }
-  return tooltip;
-}
-
 /**
  * Screen 1: Back-to-Back Victim Population Pyramid (Age & Sex)
  */
@@ -33,41 +13,45 @@ export async function pyramid(el, { data, lazy }) {
   const container = d3.select(el);
   container.html("");
 
-  const rawData = data?.victim_age_sex || await lazy("victim_age_sex");
-  const tooltip = getTooltip();
+  const rawData = data?.victim_age_sex || (await lazy?.("victim_age_sex")) || [];
+
+  // Global Tooltip
+  let tooltip = d3.select("body").select("#tooltip");
+  if (tooltip.empty()) {
+    tooltip = d3.select("body").append("div")
+      .attr("id", "tooltip")
+      .attr("class", "tooltip")
+      .style("opacity", 0);
+  }
 
   const wrapper = container.append("div")
     .style("display", "flex")
     .style("flex-direction", "column")
     .style("width", "100%")
     .style("height", "100%")
-    .style("padding", "1.25rem 1.75rem")
-    .style("box-sizing", "border-box");
+    .style("gap", "var(--s-2)");
 
-  const header = wrapper.append("div").style("margin-bottom", "0.75rem");
-  header.append("h2")
-    .style("margin", "0 0 0.2rem 0")
-    .style("font-size", "1.4rem")
-    .style("color", "var(--text)")
-    .text("Victim Demographics Population Pyramid");
-
+  const header = wrapper.append("div");
+  header.append("p").attr("class", "label").text("07 · VICTIMS");
+  header.append("h2").text("Victim Demographics Population Pyramid");
   header.append("p")
-    .style("margin", "0")
-    .style("font-size", "0.8rem")
-    .style("color", "var(--muted)")
+    .attr("class", "caption")
+    .style("margin-top", "var(--s-1)")
     .text("Back-to-back victim age group distribution for Male vs Female individual victims.");
 
-  const chartBox = wrapper.append("div")
-    .style("flex", "1")
-    .style("background", "var(--bg-card, #1e293b)")
-    .style("border", "1px solid var(--border, #334155)")
-    .style("border-radius", "8px")
-    .style("padding", "1rem")
-    .style("position", "relative");
+  // Inspector Banner
+  const statsBanner = wrapper.append("div")
+    .style("background", "var(--surface)")
+    .style("border", "var(--rule)")
+    .style("padding", "var(--s-2) var(--s-3)")
+    .style("display", "flex")
+    .style("justify-content", "space-between")
+    .style("align-items", "center")
+    .style("font-family", "var(--font-mono)")
+    .style("font-size", "var(--fs-small)");
 
   const ageBins = ["0-17", "18-24", "25-34", "35-44", "45-54", "55-64", "65+"];
   
-  // Aggregate counts per age group for Male and Female
   const maleData = new Map();
   const femaleData = new Map();
 
@@ -80,11 +64,53 @@ export async function pyramid(el, { data, lazy }) {
     if (sex === "Female" || sex === "F") femaleData.set(age, (femaleData.get(age) || 0) + count);
   });
 
-  const width = chartBox.node().clientWidth || 800;
-  const height = chartBox.node().clientHeight || 360;
+  const totalMale = d3.sum(Array.from(maleData.values())) || 1;
+  const totalFemale = d3.sum(Array.from(femaleData.values())) || 1;
+
+  function updateBanner(d, sex) {
+    if (!d) {
+      statsBanner.html(`
+        <span class="label">DEMOGRAPHIC INSPECTOR:</span>
+        <span style="color:var(--bone-60);">Hover over any age bracket to inspect gender-specific victim counts.</span>
+      `);
+    } else {
+      const cnt = sex === "Male" ? (maleData.get(d) || 0) : (femaleData.get(d) || 0);
+      const total = sex === "Male" ? totalMale : totalFemale;
+      const share = ((cnt / total) * 100).toFixed(1);
+
+      statsBanner.html(`
+        <div>
+          <span class="label">AGE GROUP:</span>
+          <strong style="color:var(--bone); margin-left:4px;">${d} YEAR OLDS</strong>
+          <span style="color:var(--bone-60); margin-left:12px;">Sex: ${sex.toUpperCase()}</span>
+        </div>
+        <div>
+          <span class="label">VICTIM COUNT:</span>
+          <strong class="num" style="margin-left:4px; color:var(--bone);">${d3.format(",")(cnt)}</strong>
+          <span class="label" style="margin-left:12px;">SEX SHARE:</span>
+          <strong class="num signal" style="margin-left:4px;">${share}%</strong>
+        </div>
+      `);
+    }
+  }
+  updateBanner(null);
+
+  const chartBox = wrapper.append("div")
+    .style("flex", "1")
+    .style("min-height", "0")
+    .style("background", "var(--surface)")
+    .style("border", "var(--rule)")
+    .style("position", "relative");
+
+  const bbox = chartBox.node()?.getBoundingClientRect() || {};
+  const width = bbox.width || 800;
+  const height = bbox.height || 360;
   const margin = { top: 35, right: 40, bottom: 35, left: 40 };
 
-  const svg = chartBox.append("svg").attr("width", width).attr("height", height);
+  const svg = chartBox.append("svg")
+    .attr("width", "100%")
+    .attr("height", "100%")
+    .attr("viewBox", `0 0 ${width} ${height}`);
 
   const centerPadding = 45;
   const halfWidth = (width - margin.left - margin.right - centerPadding * 2) / 2;
@@ -104,13 +130,14 @@ export async function pyramid(el, { data, lazy }) {
     .domain([0, maxVal * 1.1])
     .range([width - margin.right - halfWidth, width - margin.right]);
 
-  // Headers
+  // Section Headers
   svg.append("text")
     .attr("x", margin.left + halfWidth / 2)
     .attr("y", margin.top - 12)
     .attr("text-anchor", "middle")
-    .attr("fill", "var(--accent, #38bdf8)")
-    .style("font-size", "0.85rem")
+    .attr("fill", "var(--bone)")
+    .style("font-size", "var(--fs-small)")
+    .style("font-family", "var(--font-mono)")
     .style("font-weight", "700")
     .text("MALE VICTIMS");
 
@@ -118,8 +145,9 @@ export async function pyramid(el, { data, lazy }) {
     .attr("x", width - margin.right - halfWidth / 2)
     .attr("y", margin.top - 12)
     .attr("text-anchor", "middle")
-    .attr("fill", "var(--accent-rose, #f43f5e)")
-    .style("font-size", "0.85rem")
+    .attr("fill", "var(--signal)")
+    .style("font-size", "var(--fs-small)")
+    .style("font-family", "var(--font-mono)")
     .style("font-weight", "700")
     .text("FEMALE VICTIMS");
 
@@ -131,8 +159,9 @@ export async function pyramid(el, { data, lazy }) {
     .attr("x", width / 2)
     .attr("y", d => yScale(d) + yScale.bandwidth() / 2 + 4)
     .attr("text-anchor", "middle")
-    .attr("fill", "var(--text)")
-    .style("font-size", "0.78rem")
+    .attr("fill", "var(--bone)")
+    .style("font-size", "var(--fs-small)")
+    .style("font-family", "var(--font-mono)")
     .style("font-weight", "600")
     .text(d => d);
 
@@ -146,14 +175,31 @@ export async function pyramid(el, { data, lazy }) {
     .attr("x", d => xLeftScale(maleData.get(d) || 0))
     .attr("height", yScale.bandwidth())
     .attr("width", d => Math.max(0, (margin.left + halfWidth) - xLeftScale(maleData.get(d) || 0)))
-    .attr("fill", "var(--accent, #38bdf8)")
-    .attr("rx", 3)
+    .attr("fill", "var(--bone)")
     .style("cursor", "pointer")
-    .on("mouseover", (event, d) => {
-      tooltip.html(`<strong>Male Victims (${d})</strong><br/>Count: <strong>${d3.format(",")(maleData.get(d) || 0)}</strong>`).style("opacity", 1);
+    .on("mouseover", function (event, d) {
+      d3.select(this).attr("fill", "var(--signal)");
+      updateBanner(d, "Male");
+
+      const cnt = maleData.get(d) || 0;
+      const share = ((cnt / totalMale) * 100).toFixed(1);
+
+      tooltip.html(`
+        <strong style="color:var(--bone);">Male Victims (${d} yrs)</strong><br/>
+        Victim Count: <strong>${d3.format(",")(cnt)}</strong><br/>
+        Share of Male Victims: <strong style="color:var(--signal);">${share}%</strong>
+      `).style("opacity", 1);
     })
-    .on("mousemove", event => tooltip.style("left", (event.pageX + 12) + "px").style("top", (event.pageY - 28) + "px"))
-    .on("mouseout", () => tooltip.style("opacity", 0));
+    .on("mousemove", event => {
+      tooltip
+        .style("left", (event.clientX + 14) + "px")
+        .style("top", (event.clientY - 28) + "px");
+    })
+    .on("mouseout", function () {
+      d3.select(this).attr("fill", "var(--bone)");
+      updateBanner(null);
+      tooltip.style("opacity", 0);
+    });
 
   // Female Bars (Extending Right)
   svg.selectAll(".female-bar")
@@ -165,14 +211,29 @@ export async function pyramid(el, { data, lazy }) {
     .attr("x", width - margin.right - halfWidth)
     .attr("height", yScale.bandwidth())
     .attr("width", d => Math.max(0, xRightScale(femaleData.get(d) || 0) - (width - margin.right - halfWidth)))
-    .attr("fill", "var(--accent-rose, #f43f5e)")
-    .attr("rx", 3)
+    .attr("fill", "var(--signal)")
     .style("cursor", "pointer")
-    .on("mouseover", (event, d) => {
-      tooltip.html(`<strong>Female Victims (${d})</strong><br/>Count: <strong>${d3.format(",")(femaleData.get(d) || 0)}</strong>`).style("opacity", 1);
+    .on("mouseover", function (event, d) {
+      updateBanner(d, "Female");
+
+      const cnt = femaleData.get(d) || 0;
+      const share = ((cnt / totalFemale) * 100).toFixed(1);
+
+      tooltip.html(`
+        <strong style="color:var(--bone);">Female Victims (${d} yrs)</strong><br/>
+        Victim Count: <strong>${d3.format(",")(cnt)}</strong><br/>
+        Share of Female Victims: <strong style="color:var(--signal);">${share}%</strong>
+      `).style("opacity", 1);
     })
-    .on("mousemove", event => tooltip.style("left", (event.pageX + 12) + "px").style("top", (event.pageY - 28) + "px"))
-    .on("mouseout", () => tooltip.style("opacity", 0));
+    .on("mousemove", event => {
+      tooltip
+        .style("left", (event.clientX + 14) + "px")
+        .style("top", (event.clientY - 28) + "px");
+    })
+    .on("mouseout", function () {
+      updateBanner(null);
+      tooltip.style("opacity", 0);
+    });
 }
 
 /**
@@ -182,45 +243,88 @@ export async function type(el, { data, lazy }) {
   const container = d3.select(el);
   container.html("");
 
-  const rawData = data?.victim_type || await lazy("victim_type");
-  const tooltip = getTooltip();
+  const rawData = data?.victim_type || (await lazy?.("victim_type")) || [];
+
+  // Global Tooltip
+  let tooltip = d3.select("body").select("#tooltip");
+  if (tooltip.empty()) {
+    tooltip = d3.select("body").append("div")
+      .attr("id", "tooltip")
+      .attr("class", "tooltip")
+      .style("opacity", 0);
+  }
 
   const wrapper = container.append("div")
     .style("display", "flex")
     .style("flex-direction", "column")
     .style("width", "100%")
     .style("height", "100%")
-    .style("padding", "1.25rem 1.75rem")
-    .style("box-sizing", "border-box");
+    .style("gap", "var(--s-2)");
 
-  const header = wrapper.append("div").style("margin-bottom", "0.75rem");
-  header.append("h2")
-    .style("margin", "0 0 0.2rem 0")
-    .style("font-size", "1.4rem")
-    .style("color", "var(--text)")
-    .text("Victim Classification Mix");
-
+  const header = wrapper.append("div");
+  header.append("p").attr("class", "label").text("07 · VICTIMS");
+  header.append("h2").text("Victim Classification Mix");
   header.append("p")
-    .style("margin", "0")
-    .style("font-size", "0.8rem")
-    .style("color", "var(--muted)")
+    .attr("class", "caption")
+    .style("margin-top", "var(--s-1)")
     .text("NIBRS victim entity types (Person vs Commercial Business vs Society/Public).");
 
   const totalVictims = d3.sum(rawData, d => Number(d.count || 0)) || 1;
 
+  // Inspector Banner
+  const statsBanner = wrapper.append("div")
+    .style("background", "var(--surface)")
+    .style("border", "var(--rule)")
+    .style("padding", "var(--s-2) var(--s-3)")
+    .style("display", "flex")
+    .style("justify-content", "space-between")
+    .style("align-items", "center")
+    .style("font-family", "var(--font-mono)")
+    .style("font-size", "var(--fs-small)");
+
+  function updateBanner(d) {
+    if (!d) {
+      statsBanner.html(`
+        <span class="label">CLASSIFICATION INSPECTOR:</span>
+        <span style="color:var(--bone-60);">Hover over any bar to inspect victim entity classifications.</span>
+      `);
+    } else {
+      const typeName = d.victim_type || d.type || "Unknown";
+      const cnt = Number(d.count || 0);
+      const share = ((cnt / totalVictims) * 100).toFixed(1);
+
+      statsBanner.html(`
+        <div>
+          <span class="label">ENTITY TYPE:</span>
+          <strong style="color:var(--bone); margin-left:4px;">${typeName.toUpperCase()}</strong>
+        </div>
+        <div>
+          <span class="label">VICTIM COUNT:</span>
+          <strong class="num" style="margin-left:4px; color:var(--bone);">${d3.format(",")(cnt)}</strong>
+          <span class="label" style="margin-left:12px;">SHARE:</span>
+          <strong class="num signal" style="margin-left:4px;">${share}%</strong>
+        </div>
+      `);
+    }
+  }
+  updateBanner(null);
+
   const chartBox = wrapper.append("div")
     .style("flex", "1")
-    .style("background", "var(--bg-card, #1e293b)")
-    .style("border", "1px solid var(--border, #334155)")
-    .style("border-radius", "8px")
-    .style("padding", "1rem")
+    .style("min-height", "0")
+    .style("background", "var(--surface)")
+    .style("border", "var(--rule)")
     .style("position", "relative");
 
-  const width = chartBox.node().clientWidth || 800;
-  const height = chartBox.node().clientHeight || 360;
-  const margin = { top: 20, right: 90, bottom: 30, left: 180 };
+  const bbox = chartBox.node()?.getBoundingClientRect() || {};
+  const width = bbox.width || 800;
+  const height = bbox.height || 360;
+  const margin = { top: 20, right: 100, bottom: 30, left: 180 };
 
-  const svg = chartBox.append("svg").attr("width", width).attr("height", height);
+  const svg = chartBox.append("svg")
+    .attr("width", "100%")
+    .attr("height", "100%")
+    .attr("viewBox", `0 0 ${width} ${height}`);
 
   const sortedData = rawData.slice().sort((a, b) => Number(b.count || 0) - Number(a.count || 0));
 
@@ -240,17 +344,15 @@ export async function type(el, { data, lazy }) {
     .call(d3.axisLeft(yScale).tickSize(0))
     .call(g => g.select(".domain").remove())
     .selectAll("text")
-    .attr("fill", "var(--text)")
-    .style("font-size", "0.8rem");
+    .attr("fill", "var(--bone)")
+    .style("font-size", "var(--fs-small)")
+    .style("font-family", "var(--font-mono)");
 
   // X Axis
   svg.append("g")
+    .attr("class", "axis")
     .attr("transform", `translate(0, ${height - margin.bottom})`)
-    .call(d3.axisBottom(xScale).ticks(6).tickFormat(d3.format("~s")))
-    .call(g => g.select(".domain").attr("stroke", "var(--border)"))
-    .selectAll("text")
-    .attr("fill", "var(--muted)")
-    .style("font-size", "0.75rem");
+    .call(d3.axisBottom(xScale).ticks(6).tickFormat(d3.format("~s")));
 
   // Bars
   const bars = svg.selectAll(".type-bar")
@@ -264,26 +366,39 @@ export async function type(el, { data, lazy }) {
     .attr("x", margin.left)
     .attr("height", yScale.bandwidth())
     .attr("width", d => Math.max(0, xScale(Number(d.count || 0)) - margin.left))
-    .attr("fill", (d, i) => i === 0 ? "var(--accent, #38bdf8)" : "var(--accent-amber, #fbbf24)")
-    .attr("rx", 4)
+    .attr("fill", (d, i) => i === 0 ? "var(--signal)" : "var(--bone)")
     .style("cursor", "pointer")
-    .on("mouseover", (event, d) => {
+    .on("mouseover", function (event, d) {
+      d3.select(this).attr("fill", "var(--signal)");
+      updateBanner(d);
+
       const cnt = Number(d.count || 0);
       const share = ((cnt / totalVictims) * 100).toFixed(1);
+
       tooltip.html(`
-        <strong>${d.victim_type || d.type}</strong><br/>
+        <strong style="color:var(--bone);">${d.victim_type || d.type}</strong><br/>
         Victim Count: <strong>${d3.format(",")(cnt)}</strong><br/>
-        Share: <strong>${share}%</strong>
+        Share of Total: <strong style="color:var(--signal);">${share}%</strong>
       `).style("opacity", 1);
     })
-    .on("mousemove", event => tooltip.style("left", (event.pageX + 12) + "px").style("top", (event.pageY - 28) + "px"))
-    .on("mouseout", () => tooltip.style("opacity", 0));
+    .on("mousemove", event => {
+      tooltip
+        .style("left", (event.clientX + 14) + "px")
+        .style("top", (event.clientY - 28) + "px");
+    })
+    .on("mouseout", function (event, d) {
+      const idx = sortedData.indexOf(d);
+      d3.select(this).attr("fill", idx === 0 ? "var(--signal)" : "var(--bone)");
+      updateBanner(null);
+      tooltip.style("opacity", 0);
+    });
 
   bars.append("text")
     .attr("y", d => yScale(String(d.victim_type || d.type || "Unknown")) + yScale.bandwidth() / 2 + 3)
     .attr("x", d => xScale(Number(d.count || 0)) + 8)
-    .attr("fill", "var(--muted)")
-    .style("font-size", "0.75rem")
+    .attr("fill", "var(--bone-60)")
+    .style("font-size", "var(--fs-label)")
+    .style("font-family", "var(--font-mono)")
     .text(d => {
       const cnt = Number(d.count || 0);
       return `${d3.format(",")(cnt)} (${((cnt / totalVictims) * 100).toFixed(1)}%)`;
@@ -297,16 +412,23 @@ export async function descent(el, { data, lazy }) {
   const container = d3.select(el);
   container.html("");
 
-  const rawData = data?.victim_descent_by_cat || await lazy("victim_descent_by_cat");
-  const tooltip = getTooltip();
+  const rawData = data?.victim_descent_by_cat || (await lazy?.("victim_descent_by_cat")) || [];
+
+  // Global Tooltip
+  let tooltip = d3.select("body").select("#tooltip");
+  if (tooltip.empty()) {
+    tooltip = d3.select("body").append("div")
+      .attr("id", "tooltip")
+      .attr("class", "tooltip")
+      .style("opacity", 0);
+  }
 
   const wrapper = container.append("div")
     .style("display", "flex")
     .style("flex-direction", "column")
     .style("width", "100%")
     .style("height", "100%")
-    .style("padding", "1.25rem 1.75rem")
-    .style("box-sizing", "border-box");
+    .style("gap", "var(--s-2)");
 
   const categories = ["All Categories", ...Array.from(new Set(rawData.map(d => d.category))).filter(Boolean).sort()];
   let selectedCat = "All Categories";
@@ -315,59 +437,89 @@ export async function descent(el, { data, lazy }) {
   const header = wrapper.append("div")
     .style("display", "flex")
     .style("justify-content", "space-between")
-    .style("align-items", "center")
-    .style("margin-bottom", "0.5rem");
+    .style("align-items", "flex-end");
 
   const titleGroup = header.append("div");
-  titleGroup.append("h2")
-    .style("margin", "0 0 0.2rem 0")
-    .style("font-size", "1.4rem")
-    .style("color", "var(--text)")
-    .text("Victim Descent / Ethnic Group Distribution");
-
+  titleGroup.append("p").attr("class", "label").text("07 · VICTIMS");
+  titleGroup.append("h2").text("Victim Descent / Ethnic Group Distribution");
   titleGroup.append("p")
-    .style("margin", "0")
-    .style("font-size", "0.8rem")
-    .style("color", "var(--muted)")
+    .attr("class", "caption")
+    .style("margin-top", "var(--s-1)")
     .text("Descent breakdown across reported individual victims.");
 
-  const selectGroup = header.append("div");
-  selectGroup.append("label")
-    .style("font-size", "0.8rem")
-    .style("color", "var(--muted)")
-    .style("margin-right", "0.5rem")
-    .text("Crime Category:");
+  const selectGroup = header.append("div")
+    .style("display", "flex")
+    .style("align-items", "center")
+    .style("gap", "var(--s-1)");
+
+  selectGroup.append("span").attr("class", "label").text("Crime Category:");
 
   const catSelect = selectGroup.append("select")
-    .style("background", "var(--bg-card, #1e293b)")
-    .style("color", "var(--text)")
-    .style("border", "1px solid var(--border, #334155)")
-    .style("padding", "0.3rem 0.6rem")
-    .style("border-radius", "4px")
-    .style("font-size", "0.85rem")
-    .style("font-weight", "600");
+    .style("background", "var(--surface)")
+    .style("color", "var(--bone)")
+    .style("border", "var(--rule)")
+    .style("font-family", "var(--font-mono)")
+    .style("font-size", "var(--fs-label)")
+    .style("padding", "var(--s-1) var(--s-2)");
 
-  categories.forEach(c => catSelect.append("option").attr("value", c).property("selected", c === selectedCat).text(c));
+  categories.forEach(c => {
+    catSelect.append("option")
+      .attr("value", c)
+      .property("selected", c === selectedCat)
+      .text(c);
+  });
+
+  // Inspector Banner
+  const statsBanner = wrapper.append("div")
+    .style("background", "var(--surface)")
+    .style("border", "var(--rule)")
+    .style("padding", "var(--s-2) var(--s-3)")
+    .style("display", "flex")
+    .style("justify-content", "space-between")
+    .style("align-items", "center")
+    .style("font-family", "var(--font-mono)")
+    .style("font-size", "var(--fs-small)");
+
+  function updateBanner(d, totalCount) {
+    if (!d) {
+      statsBanner.html(`
+        <span class="label">DESCENT INSPECTOR:</span>
+        <span style="color:var(--bone-60);">Hover over any bar to inspect victim descent group shares for ${selectedCat}.</span>
+      `);
+    } else {
+      const share = ((d.count / totalCount) * 100).toFixed(1);
+      statsBanner.html(`
+        <div>
+          <span class="label">DESCENT GROUP:</span>
+          <strong style="color:var(--bone); margin-left:4px;">${d.descent.toUpperCase()}</strong>
+        </div>
+        <div>
+          <span class="label">VICTIM COUNT:</span>
+          <strong class="num" style="margin-left:4px; color:var(--bone);">${d3.format(",")(d.count)}</strong>
+          <span class="label" style="margin-left:12px;">DESCENT SHARE:</span>
+          <strong class="num signal" style="margin-left:4px;">${share}%</strong>
+        </div>
+      `);
+    }
+  }
 
   const chartBox = wrapper.append("div")
     .style("flex", "1")
-    .style("background", "var(--bg-card, #1e293b)")
-    .style("border", "1px solid var(--border, #334155)")
-    .style("border-radius", "8px")
-    .style("padding", "1rem")
+    .style("min-height", "0")
+    .style("background", "var(--surface)")
+    .style("border", "var(--rule)")
     .style("position", "relative")
     .style("overflow-y", "auto");
 
   // Caveat Banner at bottom
-  wrapper.append("div")
-    .style("margin-top", "0.5rem")
-    .style("font-size", "0.72rem")
-    .style("color", "var(--muted)")
+  wrapper.append("p")
+    .attr("class", "caption")
     .style("font-style", "italic")
     .text("Note: Victim descent counts represent reported crime victims; they are not population rates and say nothing about offender demographics.");
 
   function render() {
     chartBox.html("");
+    updateBanner(null, 1);
 
     let filtered = rawData;
     if (selectedCat !== "All Categories") {
@@ -385,12 +537,15 @@ export async function descent(el, { data, lazy }) {
 
     const totalCount = d3.sum(chartData, d => d.count) || 1;
 
-    const width = chartBox.node().clientWidth || 800;
+    const bbox = chartBox.node()?.getBoundingClientRect() || {};
+    const width = bbox.width || 800;
     const rowHeight = 24;
-    const margin = { top: 15, right: 80, bottom: 25, left: 180 };
-    const height = Math.max(chartBox.node().clientHeight || 300, chartData.length * rowHeight + margin.top + margin.bottom);
+    const margin = { top: 15, right: 90, bottom: 25, left: 180 };
+    const height = Math.max(bbox.height || 300, chartData.length * rowHeight + margin.top + margin.bottom);
 
-    const svg = chartBox.append("svg").attr("width", width).attr("height", height);
+    const svg = chartBox.append("svg")
+      .attr("width", "100%")
+      .attr("height", height);
 
     const yScale = d3.scaleBand()
       .domain(chartData.map(d => d.descent))
@@ -408,17 +563,15 @@ export async function descent(el, { data, lazy }) {
       .call(d3.axisLeft(yScale).tickSize(0))
       .call(g => g.select(".domain").remove())
       .selectAll("text")
-      .attr("fill", "var(--text)")
-      .style("font-size", "0.78rem");
+      .attr("fill", "var(--bone)")
+      .style("font-size", "var(--fs-small)")
+      .style("font-family", "var(--font-mono)");
 
     // X Axis
     svg.append("g")
+      .attr("class", "axis")
       .attr("transform", `translate(0, ${height - margin.bottom})`)
-      .call(d3.axisBottom(xScale).ticks(6).tickFormat(d3.format("~s")))
-      .call(g => g.select(".domain").attr("stroke", "var(--border)"))
-      .selectAll("text")
-      .attr("fill", "var(--muted)")
-      .style("font-size", "0.75rem");
+      .call(d3.axisBottom(xScale).ticks(6).tickFormat(d3.format("~s")));
 
     // Bars
     const bars = svg.selectAll(".descent-bar")
@@ -432,30 +585,45 @@ export async function descent(el, { data, lazy }) {
       .attr("x", margin.left)
       .attr("height", yScale.bandwidth())
       .attr("width", d => Math.max(0, xScale(d.count) - margin.left))
-      .attr("fill", "var(--accent, #38bdf8)")
-      .attr("rx", 3)
+      .attr("fill", "var(--bone)")
       .style("cursor", "pointer")
-      .on("mouseover", (event, d) => {
+      .on("mouseover", function (event, d) {
+        d3.select(this).attr("fill", "var(--signal)");
+        updateBanner(d, totalCount);
+
         const share = ((d.count / totalCount) * 100).toFixed(1);
         tooltip.html(`
-          <strong>${d.descent}</strong><br/>
+          <strong style="color:var(--bone);">${d.descent}</strong><br/>
           Victim Count: <strong>${d3.format(",")(d.count)}</strong><br/>
-          Share: <strong>${share}%</strong>
+          Descent Share: <strong style="color:var(--signal);">${share}%</strong>
         `).style("opacity", 1);
       })
-      .on("mousemove", event => tooltip.style("left", (event.pageX + 12) + "px").style("top", (event.pageY - 28) + "px"))
-      .on("mouseout", () => tooltip.style("opacity", 0));
+      .on("mousemove", event => {
+        tooltip
+          .style("left", (event.clientX + 14) + "px")
+          .style("top", (event.clientY - 28) + "px");
+      })
+      .on("mouseout", function () {
+        d3.select(this).attr("fill", "var(--bone)");
+        updateBanner(null, totalCount);
+        tooltip.style("opacity", 0);
+      });
 
     // Labels
     bars.append("text")
       .attr("y", d => yScale(d.descent) + yScale.bandwidth() / 2 + 3)
       .attr("x", d => xScale(d.count) + 8)
-      .attr("fill", "var(--muted)")
-      .style("font-size", "0.72rem")
+      .attr("fill", "var(--bone-60)")
+      .style("font-size", "var(--fs-label)")
+      .style("font-family", "var(--font-mono)")
       .text(d => `${d3.format(",")(d.count)} (${((d.count / totalCount) * 100).toFixed(1)}%)`);
   }
 
-  catSelect.on("change", function () { selectedCat = this.value; render(); });
+  catSelect.on("change", function () {
+    selectedCat = this.value;
+    render();
+  });
+
   render();
 }
 
