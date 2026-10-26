@@ -22,7 +22,7 @@
   --ramp-0: #520101;
   --ramp-1: #840000;
   --ramp-2: #a60000;
-  --ramp-3: #dc0000;
+  --ramp-3: #cf0000;
   --ramp-4: #ff0000;
   --neutral-fill: #2a2a2a;  /* grey for non-highlighted marks (offense treemap leaves) */
   --context: var(--bone-60);  /* non-highlighted series */
