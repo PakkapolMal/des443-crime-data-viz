@@ -339,7 +339,6 @@ export async function weekly(el, { data, lazy }) {
     .style("flex-direction", "column")
     .style("min-height", "0");
 
-  rightCol.append("p").attr("class", "label").text("TACTICAL FLAGS");
   rightCol.append("h2").text("Special Flag Monthly Trends");
   rightCol.append("p")
     .attr("class", "caption")

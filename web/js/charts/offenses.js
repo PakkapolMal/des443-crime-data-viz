@@ -5,7 +5,7 @@
  */
 
 import * as d3 from "https://cdn.jsdelivr.net/npm/d3@7.9.0/+esm";
-import { CATEGORIES, ramp, VIOLENT_CATEGORIES } from "../util.js";
+import { CATEGORIES, VIOLENT_CATEGORIES, countColor, countKey, legend } from "../util.js";
 
 /**
  * Screen 1: NIBRS Offense Classification Hierarchy Treemap
@@ -142,7 +142,7 @@ export async function hierarchy(el, { data, lazy }) {
   // Red = violent crime (same categories as the KPI violent share); every other tile is neutral.
   const catOf = d => d.ancestors().find(a => a.depth === 2);
   const isViolent = d => d.ancestors().some(a => a.data.violent);
-  const leafFill = d => isViolent(d) ? "var(--signal-fill)" : (d.data.rollup ? "var(--surface)" : "var(--ramp-0)");
+  const leafFill = d => isViolent(d) ? "var(--signal-fill)" : (d.data.rollup ? "var(--surface)" : "var(--neutral-fill)");
   const pct = d => `${((d.value / totalValue) * 100).toFixed(1)}%`;
 
   const svg = chartBox.append("svg")
@@ -338,6 +338,9 @@ export async function cooccurrence(el, { data, lazy }) {
   // Fixed severity order (DESIGN.md); anything outside CATEGORIES goes last.
   const items = [...CATEGORIES.filter(c => present.has(c)), ...[...present].filter(c => c && !CATEGORIES.includes(c)).sort()];
 
+  // Added before measuring the chart box so the matrix is sized around it.
+  legend(wrapper, "Incidents sharing both categories", countKey);
+
   const bbox = chartBox.node()?.getBoundingClientRect() || {};
   const width = bbox.width || 900;
   const height = bbox.height || 450;
@@ -361,10 +364,8 @@ export async function cooccurrence(el, { data, lazy }) {
   const xScale = d3.scaleBand().domain(items).range([0, innerW]).padding(0.08);
   const yScale = d3.scaleBand().domain(items).range([0, innerH]).padding(0.08);
 
-  const maxVal = d3.max(rawData, d => Number(d.value || d.count || 0)) || 100;
-  // DESIGN.md ramp on a log domain: pair counts are heavily skewed (median ~50, max ~11.6k).
-  const logMax = Math.log(Math.max(2, maxVal));
-  const colorScale = (v) => ramp(Math.log(Math.max(1, v)) / logMax);
+  // Log classes: pair counts are heavily skewed (median ~50, max ~11.6k).
+  const colorScale = countColor;
 
   // X Axis
   g.append("g")

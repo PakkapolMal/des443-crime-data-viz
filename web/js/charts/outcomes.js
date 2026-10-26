@@ -6,6 +6,7 @@
 
 import * as d3 from "https://cdn.jsdelivr.net/npm/d3@7.9.0/+esm";
 import { sankey, sankeyLeft, sankeyLinkHorizontal } from "https://cdn.jsdelivr.net/npm/d3-sankey@0.12.3/+esm";
+import { legend } from "../util.js";
 
 /**
  * Screen 1: Outcome Breakdown by Category (100% Stacked Bar)
@@ -437,6 +438,13 @@ export async function lag(el, { data, lazy }) {
     .style("padding", "var(--s-2)")
     .style("position", "relative")
     .style("overflow", "hidden");
+
+  // Box colour = median lag band (same thresholds as barColor below). Added before measuring the box.
+  legend(wrapper, "Median lag", [
+    { color: "var(--bone)", label: "0 days" },
+    { color: "var(--bone-60)", label: "1–7 days" },
+    { color: "var(--signal)", label: "Over 7 days" },
+  ]);
 
   const lagData = (Array.isArray(rawData) ? rawData : []).slice().sort((a, b) => Number(b.median || 0) - Number(a.median || 0));
 

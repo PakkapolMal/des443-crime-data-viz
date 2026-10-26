@@ -5,7 +5,7 @@
  */
 
 import * as d3 from "https://cdn.jsdelivr.net/npm/d3@7.9.0/+esm";
-import { CATEGORIES, ramp } from "../util.js";
+import { CATEGORIES, ramp, countColor, countKey, legend } from "../util.js";
 
 // Regional Anchors (Zoomed Out view)
 const REGIONAL_ANCHORS = [
@@ -180,6 +180,9 @@ export async function map(el, { data, lazy }) {
     .style("border", "var(--rule)")
     .style("overflow", "hidden");
 
+  // Added before measuring the stage so the map is sized around it. Hidden in sample-dot mode.
+  const mapKey = legend(wrapper, "Incidents per cell", countKey);
+
   const bbox = stage.node()?.getBoundingClientRect() || {};
   const width = bbox.width || 1000;
   const height = bbox.height || 480;
@@ -285,6 +288,7 @@ export async function map(el, { data, lazy }) {
 
   function renderMap() {
     mapGroup.html("");
+    mapKey.style("visibility", currentMode === "grid" ? "visible" : "hidden");
 
     if (currentMode === "grid") {
       let filtered = gridData;
@@ -303,10 +307,8 @@ export async function map(el, { data, lazy }) {
         return { glat, glon, count };
       });
 
-      const maxVal = d3.max(aggregated, d => d.count) || 100;
-      // DESIGN.md ramp on a log domain (skewed counts); every drawn cell has count >= 1.
-      const logMax = Math.log(Math.max(2, maxVal));
-      const colorScale = (v) => ramp(Math.log(Math.max(1, v)) / logMax);
+      // Log classes (skewed counts, median cell ~9); every drawn cell has count >= 1.
+      const colorScale = countColor;
 
       const cellW = Math.abs(xScale(-118.25) - xScale(-118.26)) * 1.35;
       const cellH = Math.abs(yScale(34.05) - yScale(34.06)) * 1.35;
@@ -511,7 +513,6 @@ export async function areas(el, { data, lazy }) {
     .style("flex-direction", "column")
     .style("min-height", "0");
 
-  rightCol.append("p").attr("class", "label").text("CATEGORY MIX");
   rightCol.append("h2").text("Area × Category Row Share Heatmap");
 
   const heatmapBox = rightCol.append("div")
@@ -520,12 +521,34 @@ export async function areas(el, { data, lazy }) {
     .style("overflow", "hidden")
     .style("position", "relative");
 
+  const heatmapData = [];
+  summary.forEach(s => {
+    const areaTot = Number(s.total || 1);
+    categories.forEach(cat => {
+      const match = areaByCat.find(d => d.area === s.area && d.category === cat);
+      const count = match ? Number(match.count || 0) : 0;
+      heatmapData.push({
+        area: s.area,
+        category: cat,
+        count: count,
+        share: count / areaTot
+      });
+    });
+  });
+
+  const maxShare = d3.max(heatmapData, d => d.share) || 0.3;
+  const colorScale = (v) => ramp(v / maxShare);
+
+  // Numbered key at five evenly spaced shares, from 0 to the highest row share.
+  legend(rightCol, "Share of the division's incidents",
+    [0, 0.25, 0.5, 0.75, 1].map(t => ({ color: ramp(t), label: `${Math.round(t * maxShare * 100)}%` })));
+
   // Rows fill the heatmap box's measured height. Top margin fits the longest 45° category label
-  // (mono ≈ 0.62em/char at --fs-label, × sin 45°); bottom holds the colour key.
+  // (mono ≈ 0.62em/char at --fs-label, × sin 45°).
   const { width: hmBoxW, height: hmBoxH } = heatmapBox.node().getBoundingClientRect();
   const fsLabel = Math.max(11, window.innerWidth * 0.00833);
   const longestCat = d3.max(categories, c => c.length) || 20;
-  const hmMargin = { top: longestCat * fsLabel * 0.62 * 0.71 + 12, right: 20, bottom: 44 * k, left: 105 * k };
+  const hmMargin = { top: longestCat * fsLabel * 0.62 * 0.71 + 12, right: 20, bottom: 8 * k, left: 105 * k };
   const rowH = Math.max(14, Math.floor((hmBoxH - hmMargin.top - hmMargin.bottom) / summary.length));
   const cellWidth = Math.max(20, (hmBoxW - hmMargin.left - hmMargin.right - 60 * k) / categories.length);
   const hmWidth = categories.length * cellWidth + hmMargin.left + hmMargin.right;
@@ -565,23 +588,6 @@ export async function areas(el, { data, lazy }) {
     .style("font-size", "var(--fs-small)")
     .text(d => d);
 
-  const heatmapData = [];
-  summary.forEach(s => {
-    const areaTot = Number(s.total || 1);
-    categories.forEach(cat => {
-      const match = areaByCat.find(d => d.area === s.area && d.category === cat);
-      const count = match ? Number(match.count || 0) : 0;
-      heatmapData.push({
-        area: s.area,
-        category: cat,
-        count: count,
-        share: count / areaTot
-      });
-    });
-  });
-
-  const maxShare = d3.max(heatmapData, d => d.share) || 0.3;
-  const colorScale = (v) => ramp(v / maxShare);
 
   const rects = hmG.selectAll(".hm-rect")
     .data(heatmapData)
@@ -607,31 +613,6 @@ export async function areas(el, { data, lazy }) {
     .on("mouseout", function () {
       tooltip.style("opacity", 0);
     });
-
-  // Colour key under the heatmap: the ramp in 8 steps, from the lowest to the highest row share.
-  // The key spans the heatmap grid exactly, from the first cell's left edge to the last cell's right edge.
-  const keySteps = d3.range(8).map(i => i / 7);
-  const keyX0 = xScale(categories[0]);
-  const keyW = xScale(categories[categories.length - 1]) + xScale.bandwidth() - keyX0;
-  const keyY = summary.length * rowH + 14 * k;
-  const key = hmG.append("g").attr("transform", `translate(${keyX0}, ${keyY})`);
-  key.selectAll("rect")
-    .data(keySteps)
-    .join("rect")
-    .attr("x", (d, i) => i * keyW / keySteps.length)
-    .attr("width", keyW / keySteps.length)
-    .attr("height", 10 * k)
-    .attr("fill", d => ramp(d));
-  key.append("text")
-    .attr("y", 10 * k + 14 * k)
-    .attr("fill", "var(--bone-60)")
-    .text("Low");
-  key.append("text")
-    .attr("x", keyW)
-    .attr("y", 10 * k + 14 * k)
-    .attr("text-anchor", "end")
-    .attr("fill", "var(--bone-60)")
-    .text(`High (${(maxShare * 100).toFixed(0)}% of the division's incidents)`);
 
   function updateHighlights() {
     barRows.selectAll(".area-bar")

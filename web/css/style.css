@@ -210,6 +210,11 @@ button[disabled] { color: var(--bone-35); cursor: default; }
   opacity: 0; /* charts show it with style("opacity", 1) */
 }
 
+/* --- Colour legends (util.js legend()) --- */
+.legend { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-1) var(--s-3); font-size: var(--fs-label); color: var(--bone-60); }
+.legend-item { display: inline-flex; align-items: center; gap: var(--s-1); }
+.legend-item i { width: max(14px, 1.1vw); height: max(10px, 0.8vw); }
+
 /* --- Tables: 1px hairlines between rows only (DESIGN.md: no vertical rules, no outer box) --- */
 .data-table { border-collapse: collapse; }
 .data-table th {

@@ -79,8 +79,9 @@ Constraints:
 - Cards are `--surface` with no border, or `--bg` with a hairline. Not both.
 
 ## Charts (D3)
-- **Sequential:** `d3.scaleLinear().domain([0, 1/3, 2/3, 1]).range([ramp-0 … ramp-3])` over the normalised value: `#2a2a2a` → `#9d0208` → `#e5383b` → bone. Use for the density grid and heatmaps. Use a log or quantile domain when the data is skewed.
-  - The low end is a neutral grey, not black: a projector lifts black to grey, so black and very dark red merge into the background. Zero or no data draws **no mark** (the background shows); the smallest non-zero value is `--ramp-0`, so it always stays visible.
+- **Sequential:** `ramp` in `util.js`, five stops `--ramp-0…4`: `#520101` → `#840000` → `#a60000` → `#dc0000` → `#ff0000`. Brighter red always means more; there is no bone end (it read as ambiguous). Continuous over a normalised value for shares (heatmap); for skewed counts (density map, co-occurrence) use `countColor`, one step per order of magnitude (1–9, 10–99, 100–999, 1k–9.9k, 10k+), fixed across filters.
+  - The low end is a dark red, not black: a projector lifts black to grey, so black merges into the background. Zero or no data draws **no mark** (the background shows); the smallest non-zero value is `--ramp-0`. `#520101` is only ~1.2:1 on `--surface`, so check the lowest class on the room's projector.
+  - Every chart that encodes a value in colour has a numbered legend from `legend()` in `util.js`: 3–5 swatches in real units, never just "Low / High".
 - **Context vs highlight:** every series is `--context` (bone 60%) by default; the one highlighted series is `--signal`. Non-highlighted lines 1px, highlighted 2px.
 - **Categories:** by default there is no categorical hue; tell categories apart by position (small multiples, ordered bars), direct labels at line ends, and bone opacity steps (100 / 60 / 35) when they must share a plot. The category order is fixed across pages so a category always sits in the same place. When a viewer picks up to 3 series to compare, colour them `--series-1…3` in selection order (see *Categorical hues*).
 - Gridlines and axis domains: `--hairline`. Tick labels: `--bone-60`, mono, `--fs-label`.
