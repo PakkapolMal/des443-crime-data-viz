@@ -13,7 +13,8 @@
   --hairline: rgb(232 226 214 / 0.20);
   --rule: 1px solid var(--hairline);
 
-  /* Signal red. Max 2 red elements per viewport. Never borders, decoration or large backgrounds. */
+  /* Signal red. Max 2 red elements per viewport. Never borders, decoration or large backgrounds
+     (one exception: the title-screen rain, see DESIGN.md "Title rain exception"). */
   --signal: #e5383b;       /* text + data marks; text only at large/bold sizes (4.35-4.65:1) */
   --signal-fill: #9d0208;  /* fills only (primary button, highlighted bar); never text */
 

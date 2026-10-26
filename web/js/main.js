@@ -2,6 +2,8 @@
  * LA Crime under NIBRS — Router, Intersection Observer & Single-Screen Wheel Lock
  */
 
+import { startRain } from "./rain.js";
+
 const loadedModules = new Map();
 const rawCache = new Map();
 
@@ -23,7 +25,7 @@ export async function lazy(key) {
 }
 
 async function loadScreen(chapterId, screenName, element) {
-  if (screenName === "title") return; // Rendered directly via index.html static markup
+  if (screenName === "title") return startRain(element); // Text is static markup in index.html; rain is a canvas behind it
 
   try {
     if (!loadedModules.has(chapterId)) {

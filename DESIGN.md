@@ -8,6 +8,8 @@ Analytical and respectful. Every number is a person's bad day, so nothing in the
 - Plain verbs in copy ("incidents", "victims", "cleared"). No "shocking", "deadly", "epidemic".
 - Decoration is restraint: whitespace, hairlines and type. Nothing else.
 
+**Title rain exception.** The title screen, and only the title screen, has an ambient red rain on a wet stone street under a thin layer of clear water ([web/js/rain.js](web/js/rain.js), two WebGL passes; without WebGL the screen is plain): motion-blurred streaks, brief splash crowns at impact, lit rippling rings with red crests, a cold streetlight reflection the ripples break up and that flickers like a dying lamp, gusts, a slow handheld drift, 24 fps film grain, and brief digital glitch bursts that tear the image and the title. No splatter marks left on surfaces, and no red spreading into the water. The flicker never changes level more often than every 0.34 s, and glitch bursts only run while the lamp is steady, so together they stay under 3 flashes per second (WCAG 2.3.1); keep that limit if you retune either. It is the one place where red is decoration and where the 2-red-per-viewport limit doesn't apply. It sits behind the text, masked out under the left ~40% so the title keeps full contrast, pauses when the title is out of view, and is a single still frame under `prefers-reduced-motion`. Don't extend it to other screens.
+
 ## Presentation target
 The dashboard is presented live, in front of a class, on a 16:9 projector or screen. Design for that one frame.
 - **16:9, desktop only.** There is no mobile or tablet layout and no responsive breakpoints. Every screen must fit one 16:9 viewport without scrolling inside it.
