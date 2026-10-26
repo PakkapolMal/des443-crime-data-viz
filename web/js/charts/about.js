@@ -1,6 +1,6 @@
 /**
  * Chapter 9: #about — Data Overview, Methodology & Caveats
- * Exports: about, caveats, methodology (with router aliases: overview, limitations, pipeline, default)
+ * Exports: about, notes (methodology | caveats side by side), caveats, methodology (with router aliases)
  * Data sources: kpi.json
  */
 
@@ -232,7 +232,21 @@ export async function about(el, { data, lazy }) {
 }
 
 /**
- * Screen 2: Mandatory Dashboard Caveats & Limitations
+ * Screen 2: Methodology (left half) and caveats (right half) on one screen.
+ */
+export async function notes(el) {
+  const grid = d3.select(el).html("").append("div")
+    .style("display", "grid")
+    .style("grid-template-columns", "1fr 1fr")
+    .style("gap", "var(--s-4)")
+    .style("height", "100%")
+    .style("min-height", "0");
+  await methodology(grid.append("div").style("min-height", "0").node());
+  await caveats(grid.append("div").style("min-height", "0").node());
+}
+
+/**
+ * Caveats & limitations (rendered by notes)
  */
 export async function caveats(el) {
   const container = d3.select(el);
@@ -247,7 +261,7 @@ export async function caveats(el) {
     .style("gap", "var(--s-2)");
 
   const header = wrapper.append("div");
-  header.append("h2").text("Dashboard Limitations & Analytical Caveats");
+  header.append("h2").text("Caveats");
   header.append("p")
     .attr("class", "caption")
     .style("margin-top", "var(--s-1)")
@@ -287,7 +301,7 @@ export async function caveats(el) {
       title: "Victim Descent vs. Population Rates",
       desc: "Victim descent distributions represent raw counts of reported crime victims. They are not population-adjusted rates and imply no suspect demographics.",
       tag: "DEMOGRAPHICS",
-      tagColor: "var(--hairline)"
+      tagColor: "var(--bone-60)"
     }
   ];
 
@@ -295,7 +309,7 @@ export async function caveats(el) {
     const box = grid.append("div")
       .style("background", "var(--surface)")
       .style("border", "var(--rule)")
-      .style("padding", "var(--s-3)")
+      .style("padding", "var(--s-2) var(--s-3)")
       .style("display", "flex")
       .style("flex-direction", "column")
       .style("gap", "var(--s-1)");
@@ -326,7 +340,7 @@ export async function caveats(el) {
 }
 
 /**
- * Screen 3: Pipeline Architecture & Processing Rules
+ * Pipeline methodology (rendered by notes)
  */
 export async function methodology(el) {
   const container = d3.select(el);
@@ -341,7 +355,7 @@ export async function methodology(el) {
     .style("gap", "var(--s-2)");
 
   const header = wrapper.append("div");
-  header.append("h2").text("Data Processing & Pipeline Methodology");
+  header.append("h2").text("Methodology");
   header.append("p")
     .attr("class", "caption")
     .style("margin-top", "var(--s-1)")
@@ -389,7 +403,7 @@ export async function methodology(el) {
       .style("font-size", "var(--fs-h2)")
       .style("font-weight", "700")
       .style("font-family", "var(--font-mono)")
-      .style("color", "var(--signal)")
+      .style("color", "var(--bone)")
       .text(s.num);
 
     const textGroup = card.append("div");
