@@ -120,7 +120,7 @@ export async function weapons(el, { data, lazy }) {
     .call(d3.axisLeft(yScale).tickSize(0))
     .call(g => g.select(".domain").remove())
     .selectAll("text")
-    .attr("fill", "var(--bone)")
+    .style("fill", "var(--bone)")
     .style("font-size", "var(--fs-small)")
     .style("font-family", "var(--font-mono)");
 
@@ -170,7 +170,7 @@ export async function weapons(el, { data, lazy }) {
   bars.append("text")
     .attr("y", d => yScale(d.weaponClass) + yScale.bandwidth() / 2 + 3)
     .attr("x", d => xScale(d.count) + 8)
-    .attr("fill", "var(--bone-60)")
+    .style("fill", "var(--bone-60)")
     .style("font-size", "var(--fs-label)")
     .style("font-family", "var(--font-mono)")
     .text(d => `${d3.format(",")(d.count)} (${((d.count / totalWeapons) * 100).toFixed(1)}%)`);
@@ -318,7 +318,7 @@ export async function byCategory(el, { data, lazy }) {
       .call(d3.axisLeft(yScale).tickSize(0))
       .call(g => g.select(".domain").remove())
       .selectAll("text")
-      .attr("fill", "var(--bone)")
+      .style("fill", "var(--bone)")
       .style("font-size", "var(--fs-small)")
       .style("font-family", "var(--font-mono)");
 
@@ -367,7 +367,7 @@ export async function byCategory(el, { data, lazy }) {
     bars.append("text")
       .attr("y", d => yScale(d.weaponClass) + yScale.bandwidth() / 2 + 3)
       .attr("x", d => xScale(d.count) + 8)
-      .attr("fill", "var(--bone-60)")
+      .style("fill", "var(--bone-60)")
       .style("font-size", "var(--fs-label)")
       .style("font-family", "var(--font-mono)")
       .text(d => `${d3.format(",")(d.count)} (${d.share.toFixed(1)}%)`);
@@ -487,7 +487,7 @@ export async function summary(el, { data, lazy }) {
   svg.append("text")
     .attr("text-anchor", "middle")
     .attr("dy", "-0.2em")
-    .attr("fill", "var(--bone)")
+    .style("fill", "var(--bone)")
     .style("font-size", "var(--fs-h2)")
     .style("font-family", "var(--font-mono)")
     .style("font-weight", "700")
@@ -496,7 +496,7 @@ export async function summary(el, { data, lazy }) {
   svg.append("text")
     .attr("text-anchor", "middle")
     .attr("dy", "1.2em")
-    .attr("fill", "var(--bone-60)")
+    .style("fill", "var(--bone-60)")
     .style("font-size", "var(--fs-label)")
     .style("font-family", "var(--font-mono)")
     .text("Total Incidents");

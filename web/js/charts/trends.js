@@ -140,7 +140,7 @@ export async function monthly(el, { data, lazy }) {
       .attr("x", innerW - 5)
       .attr("y", 15)
       .attr("text-anchor", "end")
-      .attr("fill", "var(--bone-60)")
+      .style("fill", "var(--bone-60)")
       .text("Sep 2026 (Partial Data)");
   }
 
@@ -188,7 +188,7 @@ export async function monthly(el, { data, lazy }) {
       .join("text")
       .attr("x", innerW + 8)
       .attr("dy", "0.35em")
-      .attr("fill", d => slots.color(d.cat))
+      .style("fill", d => slots.color(d.cat))
       .style("font-weight", "700")
       .text(d => `${d.cat} ${d3.format(",")(d.value)}`)
       .call(sel => animate(sel, firstDraw).attr("y", d => d.y));

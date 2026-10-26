@@ -198,7 +198,7 @@ export async function scatter(el, { data, lazy }) {
     points.append("text")
       .attr("x", d => xScale(d.totalVolume) + 8)
       .attr("y", d => yScale(d.catShare) + 3)
-      .attr("fill", "var(--bone-60)")
+      .style("fill", "var(--bone-60)")
       .style("font-size", "var(--fs-label)")
       .style("font-family", "var(--font-mono)")
       .style("pointer-events", "none")
@@ -346,7 +346,7 @@ export async function mix(el, { data, lazy }) {
       .call(d3.axisLeft(yScale).tickSize(0))
       .call(g => g.select(".domain").remove())
       .selectAll("text")
-      .attr("fill", "var(--bone)")
+      .style("fill", "var(--bone)")
       .style("font-size", "var(--fs-small)");
 
     svg.append("g")
@@ -502,7 +502,7 @@ export async function rankings(el, { data, lazy }) {
       .call(d3.axisLeft(yScale).tickSize(0))
       .call(g => g.select(".domain").remove())
       .selectAll("text")
-      .attr("fill", "var(--bone)")
+      .style("fill", "var(--bone)")
       .style("font-size", "var(--fs-small)");
 
     const bars = svg.selectAll(".rank-bar")
@@ -535,7 +535,7 @@ export async function rankings(el, { data, lazy }) {
     bars.append("text")
       .attr("y", d => yScale(d.area) + yScale.bandwidth() / 2 + 3)
       .attr("x", d => xScale(d.count) + 6)
-      .attr("fill", "var(--bone-60)")
+      .style("fill", "var(--bone-60)")
       .style("font-size", "var(--fs-label)")
       .text(d => d3.format(",")(d.count));
   }

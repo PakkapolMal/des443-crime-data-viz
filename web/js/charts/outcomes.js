@@ -160,7 +160,7 @@ export async function outcomes(el, { data, lazy }) {
     .call(d3.axisLeft(yScale).tickSize(0))
     .call(g => g.select(".domain").remove())
     .selectAll("text")
-    .attr("fill", "var(--bone)")
+    .style("fill", "var(--bone)")
     .style("font-size", "var(--fs-small)")
     .style("font-family", "var(--font-mono)");
 
@@ -341,7 +341,7 @@ export async function funnel(el, { data, lazy }) {
     .attr("y", d => (d.y0 + d.y1) / 2)
     .attr("dy", "0.35em")
     .attr("text-anchor", d => d.depth === 0 ? "end" : "start")
-    .attr("fill", "var(--bone)")
+    .style("fill", "var(--bone)")
     .style("paint-order", "stroke")
     .style("stroke", "var(--bg)")
     .style("stroke-width", "3px")
@@ -358,7 +358,7 @@ export async function funnel(el, { data, lazy }) {
       .attr("y", (nc.y0 + nc.y1) / 2 + fsLabel * 1.2)
       .attr("dy", "0.9em")
       .attr("class", "num")
-      .attr("fill", "var(--signal)")
+      .style("fill", "var(--signal)")
       .style("font-size", "var(--fs-h3)")
       .style("font-weight", "700")
       .text(`${pctOf(nc.value, reported)} not cleared`);
@@ -528,7 +528,7 @@ export async function lag(el, { data, lazy }) {
       .attr("y", yCenter)
       .attr("dy", "0.35em")
       .attr("text-anchor", "end")
-      .attr("fill", "var(--bone)")
+      .style("fill", "var(--bone)")
       .style("font-size", "var(--fs-small)")
       .text(d.category);
 
@@ -538,7 +538,7 @@ export async function lag(el, { data, lazy }) {
       .attr("dy", "0.35em")
       .attr("text-anchor", "middle")
       .attr("class", "num")
-      .attr("fill", medVal > 7 ? "var(--bone)" : "var(--bone-60)")
+      .style("fill", medVal > 7 ? "var(--bone)" : "var(--bone-60)")
       .style("font-weight", "700")
       .text(`${medVal}d`);
 

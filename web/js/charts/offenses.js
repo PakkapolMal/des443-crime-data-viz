@@ -184,7 +184,7 @@ export async function hierarchy(el, { data, lazy }) {
   parents.append("text")
     .attr("x", d => d.x0 + 6)
     .attr("y", d => d.y0 + HEADER * 0.68)
-    .attr("fill", d => d.depth === 1 ? "var(--bone)" : "var(--bone-60)")
+    .style("fill", d => d.depth === 1 ? "var(--bone)" : "var(--bone-60)")
     .style("font-weight", "700")
     .style("letter-spacing", "var(--tracking-label)")
     .style("pointer-events", "none")
@@ -240,14 +240,14 @@ export async function hierarchy(el, { data, lazy }) {
     const g = d3.select(this);
     const name = g.append("text")
       .attr("x", 6).attr("y", "1.3em")
-      .attr("fill", d.data.rollup ? "var(--bone-60)" : "var(--bone)")
+      .style("fill", d.data.rollup ? "var(--bone-60)" : "var(--bone)")
       .style("pointer-events", "none")
       .text(getNodeName(d.data));
     fitText(name, boxW, boxH - 4);
     if (!name.node().isConnected) return;
     const val = g.append("text")
       .attr("x", 6).attr("y", "2.6em")
-      .attr("fill", "var(--bone-60)")
+      .style("fill", "var(--bone-60)")
       .attr("class", "num")
       .style("pointer-events", "none")
       .text(`${d3.format(",")(d.value)} · ${((d.value / totalValue) * 100).toFixed(1)}%`);
@@ -377,7 +377,7 @@ export async function cooccurrence(el, { data, lazy }) {
     .attr("y", -10)
     .attr("text-anchor", "start")
     .attr("transform", d => `rotate(-45, ${xScale(d) + xScale.bandwidth() / 2}, -10)`)
-    .attr("fill", "var(--bone)")
+    .style("fill", "var(--bone)")
     .style("font-size", "var(--fs-label)")
     .style("font-family", "var(--font-mono)")
     .text(d => d);
@@ -391,7 +391,7 @@ export async function cooccurrence(el, { data, lazy }) {
     .attr("x", -10)
     .attr("y", d => yScale(d) + yScale.bandwidth() / 2 + 3)
     .attr("text-anchor", "end")
-    .attr("fill", "var(--bone-60)")
+    .style("fill", "var(--bone-60)")
     .style("font-size", "var(--fs-small)")
     .style("font-family", "var(--font-mono)")
     .text(d => d);

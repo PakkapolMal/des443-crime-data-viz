@@ -161,7 +161,7 @@ export async function pyramid(el, { data, lazy }) {
     .attr("x", width / 2)
     .attr("y", d => yScale(d) + yScale.bandwidth() / 2 + 4)
     .attr("text-anchor", "middle")
-    .attr("fill", "var(--bone)")
+    .style("fill", "var(--bone)")
     .style("font-size", "var(--fs-small)")
     .style("font-family", "var(--font-mono)")
     .style("font-weight", "600")
@@ -347,7 +347,7 @@ export async function type(el, { data, lazy }) {
     .call(d3.axisLeft(yScale).tickSize(0))
     .call(g => g.select(".domain").remove())
     .selectAll("text")
-    .attr("fill", "var(--bone)")
+    .style("fill", "var(--bone)")
     .style("font-size", "var(--fs-small)")
     .style("font-family", "var(--font-mono)");
 
@@ -399,7 +399,7 @@ export async function type(el, { data, lazy }) {
   bars.append("text")
     .attr("y", d => yScale(String(d.victim_type || d.type || "Unknown")) + yScale.bandwidth() / 2 + 3)
     .attr("x", d => xScale(Number(d.count || 0)) + 8)
-    .attr("fill", "var(--bone-60)")
+    .style("fill", "var(--bone-60)")
     .style("font-size", "var(--fs-label)")
     .style("font-family", "var(--font-mono)")
     .text(d => {
@@ -567,7 +567,7 @@ export async function descent(el, { data, lazy }) {
       .call(d3.axisLeft(yScale).tickSize(0))
       .call(g => g.select(".domain").remove())
       .selectAll("text")
-      .attr("fill", "var(--bone)")
+      .style("fill", "var(--bone)")
       .style("font-size", "var(--fs-small)")
       .style("font-family", "var(--font-mono)");
 
@@ -617,7 +617,7 @@ export async function descent(el, { data, lazy }) {
     bars.append("text")
       .attr("y", d => yScale(d.descent) + yScale.bandwidth() / 2 + 3)
       .attr("x", d => xScale(d.count) + 8)
-      .attr("fill", "var(--bone-60)")
+      .style("fill", "var(--bone-60)")
       .style("font-size", "var(--fs-label)")
       .style("font-family", "var(--font-mono)")
       .text(d => `${d3.format(",")(d.count)} (${((d.count / totalCount) * 100).toFixed(1)}%)`);
