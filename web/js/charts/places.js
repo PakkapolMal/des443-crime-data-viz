@@ -100,7 +100,6 @@ export async function map(el, { data, lazy }) {
     .style("align-items", "flex-end");
 
   const titleGroup = header.append("div");
-  titleGroup.append("p").attr("class", "label").text("03 · WHERE");
   titleGroup.append("h2").text("Spatial Crime Density Map");
   titleGroup.append("p")
     .attr("class", "caption")
@@ -438,7 +437,6 @@ export async function areas(el, { data, lazy }) {
     .style("flex-direction", "column")
     .style("min-height", "0");
 
-  leftCol.append("p").attr("class", "label").text("03 · WHERE");
   leftCol.append("h2").text("Total Incidents by LAPD Division");
   leftCol.append("p")
     .attr("class", "caption")
@@ -661,7 +659,6 @@ export async function locations(el, { data, lazy }) {
     .style("gap", "var(--s-3)");
 
   const header = wrapper.append("div");
-  header.append("p").attr("class", "label").text("03 · WHERE");
   header.append("h2").text("The 12 busiest addresses");
   header.append("p")
     .attr("class", "caption")

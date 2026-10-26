@@ -32,7 +32,6 @@ export async function pyramid(el, { data, lazy }) {
     .style("gap", "var(--s-2)");
 
   const header = wrapper.append("div");
-  header.append("p").attr("class", "label").text("07 · VICTIMS");
   header.append("h2").text("Victim Demographics Population Pyramid");
   header.append("p")
     .attr("class", "caption")
@@ -267,7 +266,6 @@ export async function type(el, { data, lazy }) {
     .style("gap", "var(--s-2)");
 
   const header = wrapper.append("div");
-  header.append("p").attr("class", "label").text("07 · VICTIMS");
   header.append("h2").text("Victim Classification Mix");
   header.append("p")
     .attr("class", "caption")
@@ -445,7 +443,6 @@ export async function descent(el, { data, lazy }) {
     .style("align-items", "flex-end");
 
   const titleGroup = header.append("div");
-  titleGroup.append("p").attr("class", "label").text("07 · VICTIMS");
   titleGroup.append("h2").text("Victim Descent / Ethnic Group Distribution");
   titleGroup.append("p")
     .attr("class", "caption")

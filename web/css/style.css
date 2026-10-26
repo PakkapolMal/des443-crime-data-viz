@@ -84,18 +84,121 @@ button[disabled] { color: var(--bone-35); cursor: default; }
 
 :focus-visible { outline: 1px solid var(--bone); outline-offset: 2px; }
 
-/* --- Shared Fixed Navigation Chrome --- */
-#chapter-indicator {
+/* --- Chapter rail (DESIGN.md "Side rail exception": the one glass, rounded element) ---
+   #rail is the hover zone, sized to the expanded pill so the whole area reacts, and it sits
+   inside the screens' left padding (--s-6), so it never covers chart content. */
+#rail {
+  --dot: max(32px, 2.5vw);
+  --gap: var(--s-2);
+  --pad: max(6px, 0.47vw);
+  --rail-w: calc(var(--dot) + 2 * var(--pad));
+  --rail-h: calc(var(--n, 9) * var(--dot) + (var(--n, 9) - 1) * var(--gap) + 2 * var(--pad));
   position: fixed;
-  top: var(--s-3);
-  right: var(--s-6);
-  pointer-events: none;
-  font-size: var(--fs-label);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-label);
-  color: var(--bone-60);
+  left: var(--s-2);
+  top: 50%;
+  transform: translateY(-50%);
+  width: var(--rail-w);
+  height: var(--rail-h);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   z-index: 100;
 }
+.rail-pill {
+  position: relative;
+  width: max(16px, 1.25vw);
+  height: max(64px, 5vw);
+  border-radius: 999px;
+  background: rgb(11 11 11 / 0.55);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  border: 1px solid rgb(232 226 214 / 0.14);
+  box-shadow: inset 0 1px 0 rgb(232 226 214 / 0.10), 0 12px 32px rgb(0 0 0 / 0.55);
+  transition: width 240ms cubic-bezier(.2, .8, .2, 1), height 320ms cubic-bezier(.2, .8, .2, 1);
+}
+#rail:hover .rail-pill,
+#rail:focus-within .rail-pill { width: var(--rail-w); height: var(--rail-h); }
+
+/* Collapsed state: three stacked dots tell people something is here. */
+.rail-hint {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: max(5px, 0.4vw);
+  transition: opacity 120ms;
+}
+.rail-hint i { width: 3px; height: 3px; border-radius: 50%; background: var(--bone-60); }
+#rail:hover .rail-hint,
+#rail:focus-within .rail-hint { opacity: 0; }
+
+/* The list keeps its full size and is centred in the pill, invisible while collapsed (no clipping,
+   so the hover names below can sit outside the pill). Links stay focusable when hidden: tabbing
+   into one expands the rail via :focus-within. */
+.rail-list {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+  opacity: 0;
+  transition: opacity 160ms;
+}
+#rail:hover .rail-list,
+#rail:focus-within .rail-list { opacity: 1; transition-delay: 120ms; }
+.rail-list a {
+  display: grid;
+  place-items: center;
+  width: var(--dot);
+  height: var(--dot);
+  border-radius: 50%;
+  background: rgb(232 226 214 / 0.06);
+  color: var(--bone-60);
+  font-size: var(--fs-label);
+  font-variant-numeric: tabular-nums;
+  text-decoration: none;
+  transition: background 120ms, color 120ms;
+}
+.rail-list a:hover { background: rgb(232 226 214 / 0.14); color: var(--bone); }
+.rail-list a[aria-current="true"] { background: var(--bone); color: var(--bg); font-weight: 700; }
+
+/* Chapter name beside the hovered or focused number. Visual only: the link's aria-label names it. */
+.rail-list a { position: relative; }
+.rail-list a::after {
+  content: attr(data-name);
+  position: absolute;
+  left: calc(100% + var(--pad) + var(--s-2));
+  top: 50%;
+  transform: translate(-4px, -50%);
+  padding: var(--s-1) var(--s-2);
+  white-space: nowrap;
+  border-radius: 999px;
+  background: rgb(11 11 11 / 0.7);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  border: 1px solid rgb(232 226 214 / 0.14);
+  color: var(--bone);
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-label);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms, transform 160ms;
+}
+.rail-list a:hover::after,
+.rail-list a:focus-visible::after { opacity: 1; transform: translate(0, -50%); }
+
+@media (prefers-reduced-motion: reduce) {
+  .rail-pill, .rail-hint, .rail-list, .rail-list a, .rail-list a::after { transition: none; }
+}
+
 .tooltip {
   position: fixed;
   pointer-events: none;

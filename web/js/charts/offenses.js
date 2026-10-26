@@ -39,7 +39,6 @@ export async function hierarchy(el, { data, lazy }) {
     .style("align-items", "flex-end");
 
   const titleGroup = header.append("div");
-  titleGroup.append("p").attr("class", "label").text("05 · OFFENSES");
   titleGroup.append("h2").text("NIBRS Offense Classification Hierarchy");
   titleGroup.append("p")
     .attr("class", "caption")
@@ -283,7 +282,6 @@ export async function cooccurrence(el, { data, lazy }) {
     .style("gap", "var(--s-2)");
 
   const header = wrapper.append("div");
-  header.append("p").attr("class", "label").text("05 · OFFENSES");
   header.append("h2").text("Offense Category Co-occurrence Matrix");
   header.append("p")
     .attr("class", "caption")
@@ -467,7 +465,6 @@ export async function distribution(el, { data, lazy }) {
     .style("gap", "var(--s-2)");
 
   const header = wrapper.append("div");
-  header.append("p").attr("class", "label").text("05 · OFFENSES");
   header.append("h2").text("Offenses Per Incident Report");
   header.append("p")
     .attr("class", "caption")

@@ -10,48 +10,53 @@
 <body>
   <!-- One <section> per chapter (its id is the URL hash). Each .screen is one 100vh snap stop;
        main.js calls charts/<chapter>.js -> export named after data-screen, the first time it scrolls into view. -->
-  <div id="chapter-indicator" aria-live="polite"></div>
+  <!-- Chapter rail: one numbered link per <section>, built by main.js. Collapsed until hover or keyboard focus. -->
+  <nav id="rail" aria-label="Chapters">
+    <div class="rail-pill">
+      <span class="rail-hint" aria-hidden="true"><i></i><i></i><i></i></span>
+      <ol class="rail-list"></ol>
+    </div>
+  </nav>
 
   <section id="home" data-title="Overview">
     <div class="screen title-screen" data-screen="title">
-      <p class="label">Los Angeles · LAPD crime reports · Apr 2024 – Sep 2026</p>
       <h1>LA Crime<br>under NIBRS</h1>
-      <p class="lede">How much crime was reported, where and when it happened, who was harmed, and what happened after the report.</p>
+      <p class="lede">How much crime LAPD recorded in Los Angeles from April 2024 to September 2026, where and when it happened, who was harmed, and what happened after the report.</p>
       <p class="label scroll-cue">Scroll ↓</p>
     </div>
     <div class="screen kpi-screen" data-screen="kpi"></div>
   </section>
 
-  <section id="trends" data-title="When">
+  <section id="trends" data-title="Trends">
     <div class="screen" data-screen="monthly"></div>
     <div class="screen" data-screen="weekly"></div>
   </section>
 
-  <section id="places" data-title="Where">
+  <section id="places" data-title="Places">
     <div class="screen" data-screen="map"></div>
     <div class="screen" data-screen="areas"></div>
     <div class="screen" data-screen="locations"></div>
   </section>
 
-  <section id="compare" data-title="Area profiles">
+  <section id="compare" data-title="Division profiles">
     <div class="screen" data-screen="scatter"></div>
   </section>
 
-  <section id="offenses" data-title="What">
+  <section id="offenses" data-title="Offenses">
     <div class="screen" data-screen="hierarchy"></div>
     <div class="screen" data-screen="cooccurrence"></div>
   </section>
 
-  <section id="weapons" data-title="How dangerous">
+  <section id="weapons" data-title="Weapons">
     <div class="screen" data-screen="weapons"></div>
   </section>
 
-  <section id="victims" data-title="Who">
+  <section id="victims" data-title="Victims">
     <div class="screen" data-screen="pyramid"></div>
     <div class="screen" data-screen="descent"></div>
   </section>
 
-  <section id="outcomes" data-title="What happens next">
+  <section id="outcomes" data-title="Outcomes">
     <div class="screen" data-screen="funnel"></div>
     <div class="screen" data-screen="lag"></div>
   </section>

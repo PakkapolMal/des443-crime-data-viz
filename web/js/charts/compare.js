@@ -47,7 +47,6 @@ export async function scatter(el, { data, lazy }) {
     .style("align-items", "flex-end");
 
   const titleGroup = header.append("div");
-  titleGroup.append("p").attr("class", "label").text("04 · COMPARE");
   titleGroup.append("h2").text("Division Volume vs Category Concentration Scatter");
   titleGroup.append("p")
     .attr("class", "caption")
@@ -255,7 +254,6 @@ export async function mix(el, { data, lazy }) {
     .style("align-items", "flex-end");
 
   const titleGroup = header.append("div");
-  titleGroup.append("p").attr("class", "label").text("04 · COMPARE");
   titleGroup.append("h2").text("Category Mix Differential vs Citywide Baseline");
   titleGroup.append("p")
     .attr("class", "caption")
@@ -430,7 +428,6 @@ export async function rankings(el, { data, lazy }) {
     .style("align-items", "flex-end");
 
   const titleGroup = header.append("div");
-  titleGroup.append("p").attr("class", "label").text("04 · COMPARE");
   titleGroup.append("h2").text("Division Category Benchmark Rankings");
   titleGroup.append("p")
     .attr("class", "caption")

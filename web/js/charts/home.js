@@ -34,7 +34,6 @@ export async function kpi(el, { lazy }) {
 
   // 1. Header
   const header = container.append("div");
-  header.append("p").attr("class", "label").text("01 · OVERVIEW");
   header.append("h2").text("How much crime, and how bad?");
 
   // 2. KPIs as sentences, stacked on the left: the number, then the sentence that reads on from it.

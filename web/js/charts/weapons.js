@@ -33,7 +33,6 @@ export async function weapons(el, { data, lazy }) {
 
   // Header
   const header = wrapper.append("div");
-  header.append("p").attr("class", "label").text("06 · WEAPONS");
   header.append("h2").text("Weapon & Force Distribution Across Reported Crimes");
   header.append("p")
     .attr("class", "caption")
@@ -211,7 +210,6 @@ export async function byCategory(el, { data, lazy }) {
     .style("align-items", "flex-end");
 
   const titleGroup = header.append("div");
-  titleGroup.append("p").attr("class", "label").text("06 · WEAPONS");
   titleGroup.append("h2").text("Weapon Involvement by Crime Category");
   titleGroup.append("p")
     .attr("class", "caption")
@@ -400,7 +398,6 @@ export async function summary(el, { data, lazy }) {
     .style("gap", "var(--s-2)");
 
   const header = wrapper.append("div");
-  header.append("p").attr("class", "label").text("06 · WEAPONS");
   header.append("h2").text("Weapon & Force Class High-Level Overview");
   header.append("p")
     .attr("class", "caption")

@@ -60,7 +60,6 @@ export async function monthly(el, { data, lazy }) {
 
   // Header
   const header = wrapper.append("div");
-  header.append("p").attr("class", "label").text("02 · WHEN");
   header.append("h2").text("Monthly Crime Trends by Category");
   header.append("p")
     .attr("class", "caption")
@@ -239,7 +238,6 @@ export async function weekly(el, { data, lazy }) {
     .style("flex-direction", "column")
     .style("min-height", "0");
 
-  leftCol.append("p").attr("class", "label").text("02 · WHEN");
   leftCol.append("h2").text("Day-of-Week Distribution");
   leftCol.append("p")
     .attr("class", "caption")

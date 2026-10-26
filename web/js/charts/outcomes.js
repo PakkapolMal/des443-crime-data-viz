@@ -39,7 +39,6 @@ export async function outcomes(el, { data, lazy }) {
     .style("align-items", "flex-end");
 
   const titleGroup = header.append("div");
-  titleGroup.append("p").attr("class", "label").text("08 · OUTCOMES");
   titleGroup.append("h2").text("Case Outcomes by Crime Category");
   titleGroup.append("p")
     .attr("class", "caption")
@@ -232,7 +231,6 @@ export async function funnel(el, { data, lazy }) {
     .style("gap", "var(--s-2)");
 
   const header = wrapper.append("div");
-  header.append("p").attr("class", "label").text("08 · OUTCOMES");
   header.append("h2").text("What happens after a report");
   header.append("p")
     .attr("class", "caption")
@@ -392,7 +390,6 @@ export async function lag(el, { data, lazy }) {
     .style("gap", "var(--s-2)");
 
   const header = wrapper.append("div");
-  header.append("p").attr("class", "label").text("08 · OUTCOMES");
   header.append("h2").text("Reporting Lag Days by Crime Category");
   header.append("p")
     .attr("class", "caption")

@@ -30,7 +30,6 @@ export async function about(el, { data, lazy }) {
     .style("align-items", "flex-end");
 
   const titleGroup = header.append("div");
-  titleGroup.append("p").attr("class", "label").text("09 · ABOUT");
   titleGroup.append("h2").text("LAPD NIBRS Crime Data Visualization Project");
   titleGroup.append("p")
     .attr("class", "caption")
@@ -216,7 +215,6 @@ export async function caveats(el) {
     .style("gap", "var(--s-2)");
 
   const header = wrapper.append("div");
-  header.append("p").attr("class", "label").text("09 · ABOUT");
   header.append("h2").text("Dashboard Limitations & Analytical Caveats");
   header.append("p")
     .attr("class", "caption")
@@ -311,7 +309,6 @@ export async function methodology(el) {
     .style("gap", "var(--s-2)");
 
   const header = wrapper.append("div");
-  header.append("p").attr("class", "label").text("09 · ABOUT");
   header.append("h2").text("Data Processing & Pipeline Methodology");
   header.append("p")
     .attr("class", "caption")
