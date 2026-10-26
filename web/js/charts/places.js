@@ -191,7 +191,7 @@ export async function map(el, { data, lazy }) {
     .attr("height", "100%")
     .attr("viewBox", `0 0 ${width} ${height}`);
 
-  // Layers, bottom to top: land (ocean is the --bg showing through), cells, city outline, labels.
+  // Layers, bottom to top: land (ocean is the --bg showing through), cells, division + city lines, labels.
   const landGroup = svg.append("g");
   const mapGroup = svg.append("g");
   const outlineGroup = svg.append("g");
@@ -257,6 +257,11 @@ export async function map(el, { data, lazy }) {
     svg.append("defs").append("clipPath").attr("id", "city-clip").append("path").attr("d", geoPath(city));
     mapGroup.attr("clip-path", "url(#city-clip)");
   }
+  // Division edges (fainter) under the city outline; the build leaves the outer edge to "city".
+  const divLines = boundary("division_lines");
+  if (divLines) outlineGroup.append("path").attr("d", geoPath(divLines))
+    .attr("fill", "none").attr("stroke", "var(--bone-35)").attr("stroke-width", 1)
+    .attr("vector-effect", "non-scaling-stroke").style("pointer-events", "none");
   if (city) outlineGroup.append("path").attr("d", geoPath(city))
     .attr("fill", "none").attr("stroke", "var(--bone-60)").attr("stroke-width", 1)
     .attr("vector-effect", "non-scaling-stroke").style("pointer-events", "none");
