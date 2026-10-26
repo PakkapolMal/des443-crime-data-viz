@@ -246,6 +246,30 @@ export async function map(el, { data, lazy }) {
   const btnZoomIn = zoomBtn("+");
   const btnZoomOut = zoomBtn("−");
 
+  // California locator, bottom-left (open ocean at the default view): state outline + LA's box.
+  // Fixed to the stage, not the zoom, so it always answers "where is this?".
+  const state = boundary("california");
+  if (state && city) {
+    const insetW = Math.max(72, window.innerWidth * 0.06), insetH = insetW * 1.1;
+    const inset = stage.append("svg")
+      .attr("width", insetW).attr("height", insetH)
+      .attr("role", "img").attr("aria-label", "Locator: Los Angeles in southern California")
+      .style("position", "absolute").style("left", "var(--s-2)").style("bottom", "var(--s-2)")
+      .style("background", "var(--bg)").style("border", "var(--rule)").style("pointer-events", "none");
+    const proj = d3.geoMercator().fitExtent([[6, 6], [insetW - 6, insetH - 6]], state);
+    inset.append("path").attr("d", d3.geoPath(proj)(state))
+      .attr("fill", "var(--surface)").attr("stroke", "var(--bone-60)").attr("stroke-width", 1);
+    const [[x0, y0], [x1, y1]] = d3.geoPath(proj).bounds(city);
+    const pad = Math.max(0, (5 - (x1 - x0)) / 2); // at least 5px so it reads on a projector
+    inset.append("rect").attr("x", x0 - pad).attr("y", y0 - pad)
+      .attr("width", x1 - x0 + 2 * pad).attr("height", y1 - y0 + 2 * pad).style("fill", "var(--bone)");
+    inset.append("text").attr("x", x1 + pad + 4).attr("y", (y0 + y1) / 2 + 4)
+      .style("fill", "var(--bone)").style("font-size", "var(--fs-label)").text("LA");
+    const [cx, cy] = d3.geoPath(proj).centroid(state);
+    inset.append("text").attr("x", cx).attr("y", cy).attr("text-anchor", "middle")
+      .style("fill", "var(--bone-60)").style("font-size", "var(--fs-label)").text("CA");
+  }
+
   // Boundaries go through the same lon/lat scales as the cells, so they line up exactly.
   const geoPath = d3.geoPath(d3.geoTransform({ point(lon, lat) { this.stream.point(xScale(lon), yScale(lat)); } }));
   stage.style("background", "var(--bg)");
@@ -297,6 +321,16 @@ export async function map(el, { data, lazy }) {
     const grow = Math.cbrt(currentZoomScale);
     const fontSize = Math.max(11, window.innerWidth * 0.00833) * grow;
     const dotRadius = 2.5 * grow;
+
+    // Ocean name, no dot: Santa Monica Bay, open water at every zoom level that shows it.
+    const [ox, oy] = currentTransform.apply([xScale(-118.56), yScale(33.82)]);
+    labelGroup.append("text")
+      .attr("x", ox).attr("y", oy).attr("text-anchor", "middle")
+      .style("fill", "var(--bone-60)")
+      .style("font-size", `${fontSize}px`)
+      .style("letter-spacing", "var(--tracking-label)")
+      .style("pointer-events", "none")
+      .text("PACIFIC OCEAN");
 
     itemsToDraw.forEach(info => {
       const [x, y] = currentTransform.apply([xScale(info.lon), yScale(info.lat)]);

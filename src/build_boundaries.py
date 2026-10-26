@@ -10,6 +10,7 @@ Features out, by `name`:
   "city"  City of LA outer edge (LAPD jurisdiction); enclaves such as Beverly Hills and Culver
           City are dropped so the map reads as one shape
   "land"  California land around LA, clipped to LAND_BBOX; everything else on the map is ocean
+  "california"  whole state outline, coarse (~2 km), for the locator inset
   "division_lines"  lines between the 21 LAPD divisions, each shared edge once; the outer edge is
           left to "city" so the two never double up
 """
@@ -85,12 +86,16 @@ def main():
     holes = unary_union([ring for p in parts for ring in p.interiors])
     city = MultiPolygon([Polygon(p.exterior) for p in parts])
     lines = division_lines(sorted((raw / "divisions").glob("lapd_rd_*.geojson")), city)
-    land = california(raw / "state/cb_2023_us_state_500k_kml.zip").intersection(box(*LAND_BBOX))
+    state = california(raw / "state/cb_2023_us_state_500k_kml.zip")
+    land = state.intersection(box(*LAND_BBOX))
 
     out = {"type": "FeatureCollection", "features": [
         {"type": "Feature", "properties": {"name": name},
-         "geometry": rounded(geom.simplify(TOLERANCE, preserve_topology=True))}
-        for name, geom in [("city", city), ("land", land), ("division_lines", lines)]
+         # d3's spherical projections need clockwise outer rings (the reverse of RFC 7946), or a
+         # polygon reads as "the globe minus this shape"
+         "geometry": rounded(shapely.orient_polygons(geom.simplify(tol, preserve_topology=True), exterior_cw=True))}
+        for name, geom, tol in [("city", city, TOLERANCE), ("land", land, TOLERANCE),
+                                ("division_lines", lines, TOLERANCE), ("california", state, 0.02)]
     ]}
     Path(a.output).write_text(json.dumps(out, separators=(",", ":")))
     size = Path(a.output).stat().st_size / 1024
