@@ -1,11 +1,11 @@
 /**
  * Chapter 3: #places — Where does it happen?
  * Exports: map(el, { data, lazy }), areas(el, { data, lazy }), locations(el, { data, lazy })
- * Files used: geo_grid.json, geo_sample.json, area_summary.json, area_by_cat.json, top_locations.json
+ * Files used: geo_grid.json, geo_sample.json, area_summary.json, area_by_cat.json, top_locations.json, boundaries.json (src/build_boundaries.py)
  */
 
 import * as d3 from "https://cdn.jsdelivr.net/npm/d3@7.9.0/+esm";
-import { CATEGORIES, ramp } from "../util.js";
+import { CATEGORIES, ramp, countColor, countKey, legend } from "../util.js";
 
 // Regional Anchors (Zoomed Out view)
 const REGIONAL_ANCHORS = [
@@ -70,10 +70,13 @@ export async function map(el, { data, lazy }) {
 
   const gridData = data?.geo_grid || (await lazy?.("geo_grid")) || [];
   const sampleData = data?.geo_sample || (await lazy?.("geo_sample")) || [];
+  const boundaries = data?.boundaries || (await lazy?.("boundaries")) || { features: [] };
+  const boundary = name => boundaries.features?.find(f => f.properties.name === name);
 
   let currentMode = "grid";
   let showLabels = true;
   let currentZoomScale = 1;
+  let currentTransform = d3.zoomIdentity;
   const categories = ["All", ...Array.from(new Set(gridData.map(d => d.category))).sort()];
   let selectedCategory = "All";
 
@@ -100,12 +103,11 @@ export async function map(el, { data, lazy }) {
     .style("align-items", "flex-end");
 
   const titleGroup = header.append("div");
-  titleGroup.append("p").attr("class", "label").text("03 · WHERE");
   titleGroup.append("h2").text("Spatial Crime Density Map");
   titleGroup.append("p")
     .attr("class", "caption")
     .style("margin-top", "var(--s-1)")
-    .text("Geographic density contour map. Zoom in or hover grid cells to reveal area details.");
+    .text("Incidents per approximately 1 km cell.");
 
   const controls = header.append("div")
     .style("display", "flex")
@@ -134,10 +136,6 @@ export async function map(el, { data, lazy }) {
   // Labels Toggle
   const btnLabels = controls.append("button").attr("aria-pressed", "true").text("Labels: ON");
 
-  // Zoom Controls
-  const zoomGroup = controls.append("div").style("display", "flex").style("gap", "var(--s-1)");
-  const btnZoomIn = zoomGroup.append("button").text("+");
-  const btnZoomOut = zoomGroup.append("button").text("-");
 
   // Dynamic Statistics Banner
   const statsBanner = wrapper.append("div")
@@ -181,6 +179,9 @@ export async function map(el, { data, lazy }) {
     .style("border", "var(--rule)")
     .style("overflow", "hidden");
 
+  // Added before measuring the stage so the map is sized around it. Hidden in sample-dot mode.
+  const mapKey = legend(wrapper, "Incidents per cell", countKey);
+
   const bbox = stage.node()?.getBoundingClientRect() || {};
   const width = bbox.width || 1000;
   const height = bbox.height || 480;
@@ -190,14 +191,22 @@ export async function map(el, { data, lazy }) {
     .attr("height", "100%")
     .attr("viewBox", `0 0 ${width} ${height}`);
 
+  // Layers, bottom to top: land (ocean is the --bg showing through), cells, division + city lines, labels.
+  const landGroup = svg.append("g");
   const mapGroup = svg.append("g");
+  const outlineGroup = svg.append("g");
   const labelGroup = svg.append("g");
+  const zoomLayers = [landGroup, mapGroup, outlineGroup]; // labels stay unzoomed: see drawLandmarkLabels
 
   // Geographic Scale Setup
   const allLons = gridData.map(d => Number(d.glon || 0)).filter(Boolean);
   const allLats = gridData.map(d => Number(d.glat || 0)).filter(Boolean);
-  const lonExtent = d3.extent(allLons)[0] ? d3.extent(allLons) : [-118.65, -118.15];
-  const latExtent = d3.extent(allLats)[0] ? d3.extent(allLats) : [33.70, 34.35];
+  // Frame the City of LA (LAPD's jurisdiction), not the data extent: a few stray geocodes far
+  // outside the city would otherwise shrink it. Falls back to the data extent without boundaries.
+  const city = boundary("city");
+  const cityBounds = city && d3.geoBounds(city);
+  const lonExtent = cityBounds ? [cityBounds[0][0], cityBounds[1][0]] : d3.extent(allLons)[0] ? d3.extent(allLons) : [-118.65, -118.15];
+  const latExtent = cityBounds ? [cityBounds[0][1], cityBounds[1][1]] : d3.extent(allLats)[0] ? d3.extent(allLats) : [33.70, 34.35];
 
   const midLat = (latExtent[0] + latExtent[1]) / 2;
   const cosLat = Math.cos(midLat * Math.PI / 180);
@@ -222,17 +231,78 @@ export async function map(el, { data, lazy }) {
   const xScale = d3.scaleLinear().domain(lonExtent).range([offsetX, offsetX + mapW]);
   const yScale = d3.scaleLinear().domain(latExtent).range([offsetY + mapH, offsetY]);
 
+  // Zoom buttons, bottom-right of the map at 1.25x the normal button size.
+  const zoomGroup = stage.append("div")
+    .style("position", "absolute")
+    .style("right", "var(--s-2)")
+    .style("bottom", "var(--s-2)")
+    .style("display", "flex")
+    .style("gap", "var(--s-1)");
+  const zoomBtn = label => zoomGroup.append("button").text(label)
+    .attr("aria-label", label === "+" ? "Zoom in" : "Zoom out")
+    .style("font-size", "calc(var(--fs-label) * 1.25)")
+    .style("padding", "calc(var(--s-1) * 1.25) calc(var(--s-2) * 1.25)")
+    .style("background", "var(--bg)");
+  const btnZoomIn = zoomBtn("+");
+  const btnZoomOut = zoomBtn("−");
+
+  // California locator, bottom-left (open ocean at the default view): state outline + LA's box.
+  // Fixed to the stage, not the zoom, so it always answers "where is this?".
+  const state = boundary("california");
+  if (state && city) {
+    const insetW = Math.max(72, window.innerWidth * 0.06), insetH = insetW * 1.1;
+    const inset = stage.append("svg")
+      .attr("width", insetW).attr("height", insetH)
+      .attr("role", "img").attr("aria-label", "Locator: Los Angeles in southern California")
+      .style("position", "absolute").style("left", "var(--s-2)").style("bottom", "var(--s-2)")
+      .style("background", "var(--bg)").style("border", "var(--rule)").style("pointer-events", "none");
+    const proj = d3.geoMercator().fitExtent([[6, 6], [insetW - 6, insetH - 6]], state);
+    inset.append("path").attr("d", d3.geoPath(proj)(state))
+      .attr("fill", "var(--surface)").attr("stroke", "var(--bone-60)").attr("stroke-width", 1);
+    const [[x0, y0], [x1, y1]] = d3.geoPath(proj).bounds(city);
+    const pad = Math.max(0, (5 - (x1 - x0)) / 2); // at least 5px so it reads on a projector
+    inset.append("rect").attr("x", x0 - pad).attr("y", y0 - pad)
+      .attr("width", x1 - x0 + 2 * pad).attr("height", y1 - y0 + 2 * pad).style("fill", "var(--bone)");
+    inset.append("text").attr("x", x1 + pad + 4).attr("y", (y0 + y1) / 2 + 4)
+      .style("fill", "var(--bone)").style("font-size", "var(--fs-label)").text("LA");
+    const [cx, cy] = d3.geoPath(proj).centroid(state);
+    inset.append("text").attr("x", cx).attr("y", cy).attr("text-anchor", "middle")
+      .style("fill", "var(--bone-60)").style("font-size", "var(--fs-label)").text("CA");
+  }
+
+  // Boundaries go through the same lon/lat scales as the cells, so they line up exactly.
+  const geoPath = d3.geoPath(d3.geoTransform({ point(lon, lat) { this.stream.point(xScale(lon), yScale(lat)); } }));
+  stage.style("background", "var(--bg)");
+  const land = boundary("land");
+  if (land) landGroup.append("path").attr("d", geoPath(land))
+    .attr("fill", "var(--surface)").attr("stroke", "var(--hairline)").attr("vector-effect", "non-scaling-stroke");
+  // Cells and dots are clipped to the city edge; the clip path sits in mapGroup's own (zoomed) space.
+  if (city) {
+    svg.append("defs").append("clipPath").attr("id", "city-clip").append("path").attr("d", geoPath(city));
+    mapGroup.attr("clip-path", "url(#city-clip)");
+  }
+  // Division edges (fainter) under the city outline; the build leaves the outer edge to "city".
+  const divLines = boundary("division_lines");
+  if (divLines) outlineGroup.append("path").attr("d", geoPath(divLines))
+    .attr("fill", "none").attr("stroke", "var(--bone-35)").attr("stroke-width", 1)
+    .attr("vector-effect", "non-scaling-stroke").style("pointer-events", "none");
+  if (city) outlineGroup.append("path").attr("d", geoPath(city))
+    .attr("fill", "none").attr("stroke", "var(--bone-60)").attr("stroke-width", 1)
+    .attr("vector-effect", "non-scaling-stroke").style("pointer-events", "none");
+
   // Zoom Handler
   const zoom = d3.zoom()
     .scaleExtent([1, 8])
+    .translateExtent([[0, 0], [width, height]])
     .on("zoom", (event) => {
-      mapGroup.attr("transform", event.transform);
-      labelGroup.attr("transform", event.transform);
+      zoomLayers.forEach(g => g.attr("transform", event.transform));
+      currentTransform = event.transform;
       currentZoomScale = event.transform.k;
       drawLandmarkLabels();
     });
 
-  svg.call(zoom);
+  // Drag to pan and the +/− buttons zoom; the wheel stays page navigation (DESIGN.md: no wheel zoom).
+  svg.call(zoom).on("wheel.zoom", null);
 
   btnZoomIn.on("click", () => svg.transition().duration(250).call(zoom.scaleBy, 1.4));
   btnZoomOut.on("click", () => svg.transition().duration(250).call(zoom.scaleBy, 0.7));
@@ -246,17 +316,24 @@ export async function map(el, { data, lazy }) {
       ? Object.values(DIVISION_CENTROIDS)
       : REGIONAL_ANCHORS;
 
-    // Place labels at the --fs-label size (16px at 1920, 11px floor); a little smaller once zoomed in.
-    const labelPx = Math.max(11, window.innerWidth * 0.00833);
-    const baseFontSizePx = isZoomedIn ? labelPx * 0.8 : labelPx;
-    const effectiveFontSize = baseFontSizePx / currentZoomScale;
-    const dotRadius = (isZoomedIn ? 1.8 : 2.5) / currentZoomScale;
-    const strokeWidth = (isZoomedIn ? 0.8 : 1.2) / currentZoomScale;
-    const haloWidth = (isZoomedIn ? 1.5 : 2.2) / currentZoomScale;
+    // Labels live in screen space: positions go through the zoom transform. Size starts at --fs-label
+    // (16px at 1920, 11px floor) and grows with the cube root of zoom: 2x at the 8x maximum.
+    const grow = Math.cbrt(currentZoomScale);
+    const fontSize = Math.max(11, window.innerWidth * 0.00833) * grow;
+    const dotRadius = 2.5 * grow;
+
+    // Ocean name, no dot: Santa Monica Bay, open water at every zoom level that shows it.
+    const [ox, oy] = currentTransform.apply([xScale(-118.56), yScale(33.82)]);
+    labelGroup.append("text")
+      .attr("x", ox).attr("y", oy).attr("text-anchor", "middle")
+      .style("fill", "var(--bone-60)")
+      .style("font-size", `${fontSize}px`)
+      .style("letter-spacing", "var(--tracking-label)")
+      .style("pointer-events", "none")
+      .text("PACIFIC OCEAN");
 
     itemsToDraw.forEach(info => {
-      const x = xScale(info.lon);
-      const y = yScale(info.lat);
+      const [x, y] = currentTransform.apply([xScale(info.lon), yScale(info.lat)]);
 
       const g = labelGroup.append("g")
         .attr("transform", `translate(${x}, ${y})`)
@@ -266,19 +343,19 @@ export async function map(el, { data, lazy }) {
         .attr("r", dotRadius)
         .attr("fill", "var(--bone)")
         .attr("stroke", "var(--bg)")
-        .attr("stroke-width", strokeWidth);
+        .attr("stroke-width", 1.2 * grow);
 
       g.append("text")
-        .attr("x", (info.dx || 5) / currentZoomScale)
-        .attr("y", (info.dy || 3) / currentZoomScale)
+        .attr("x", (info.dx || 5) * grow)
+        .attr("y", (info.dy || 3) * grow)
         .attr("text-anchor", info.anchor || "start")
-        .attr("fill", "var(--bone)")
-        .attr("font-size", `${effectiveFontSize}px`)
+        .style("fill", "var(--bone)")            // styles, not attributes: style.css "svg text"
+        .style("font-size", `${fontSize}px`)     // overrides SVG presentation attributes
         .attr("font-weight", "600")
         .style("font-family", "var(--font-mono)")
         .style("paint-order", "stroke fill")
         .style("stroke", "var(--bg)")
-        .style("stroke-width", `${haloWidth}px`)
+        .style("stroke-width", `${2.2 * grow}px`)
         .style("stroke-linejoin", "round")
         .text(info.label);
     });
@@ -286,6 +363,7 @@ export async function map(el, { data, lazy }) {
 
   function renderMap() {
     mapGroup.html("");
+    mapKey.style("visibility", currentMode === "grid" ? "visible" : "hidden");
 
     if (currentMode === "grid") {
       let filtered = gridData;
@@ -304,13 +382,12 @@ export async function map(el, { data, lazy }) {
         return { glat, glon, count };
       });
 
-      const maxVal = d3.max(aggregated, d => d.count) || 100;
-      // DESIGN.md ramp on a log domain (skewed counts); every drawn cell has count >= 1.
-      const logMax = Math.log(Math.max(2, maxVal));
-      const colorScale = (v) => ramp(Math.log(Math.max(1, v)) / logMax);
+      // Log classes (skewed counts, median cell ~9); every drawn cell has count >= 1.
+      const colorScale = countColor;
 
-      const cellW = Math.abs(xScale(-118.25) - xScale(-118.26)) * 1.35;
-      const cellH = Math.abs(yScale(34.05) - yScale(34.06)) * 1.35;
+      // glat/glon are cell centres (pipeline rounds to the nearest 0.01°), so centre each cell on them.
+      const cellW = Math.abs(xScale(-118.25) - xScale(-118.26));
+      const cellH = Math.abs(yScale(34.05) - yScale(34.06));
 
       // Interactive cells
       mapGroup.append("g")
@@ -319,8 +396,8 @@ export async function map(el, { data, lazy }) {
         .enter()
         .append("rect")
         .attr("class", "cell")
-        .attr("x", d => xScale(d.glon))
-        .attr("y", d => yScale(d.glat))
+        .attr("x", d => xScale(d.glon) - cellW / 2)
+        .attr("y", d => yScale(d.glat) - cellH / 2)
         .attr("width", cellW)
         .attr("height", cellH)
         .attr("fill", d => colorScale(d.count))
@@ -438,7 +515,6 @@ export async function areas(el, { data, lazy }) {
     .style("flex-direction", "column")
     .style("min-height", "0");
 
-  leftCol.append("p").attr("class", "label").text("03 · WHERE");
   leftCol.append("h2").text("Total Incidents by LAPD Division");
   leftCol.append("p")
     .attr("class", "caption")
@@ -488,7 +564,7 @@ export async function areas(el, { data, lazy }) {
     .attr("x", 95 * k)
     .attr("y", barRowH * 0.72)
     .attr("text-anchor", "end")
-    .attr("fill", "var(--bone)")
+    .style("fill", "var(--bone)")
     .style("font-size", "var(--fs-small)")
     .text(d => d.area);
 
@@ -503,7 +579,7 @@ export async function areas(el, { data, lazy }) {
   barRows.append("text")
     .attr("x", d => 112 * k + barXScale(Number(d.total || 0)))
     .attr("y", barRowH * 0.68)
-    .attr("fill", "var(--bone-60)")
+    .style("fill", "var(--bone-60)")
     .style("font-size", "var(--fs-label)")
     .text(d => d3.format(",")(Number(d.total || 0)));
 
@@ -513,7 +589,6 @@ export async function areas(el, { data, lazy }) {
     .style("flex-direction", "column")
     .style("min-height", "0");
 
-  rightCol.append("p").attr("class", "label").text("CATEGORY MIX");
   rightCol.append("h2").text("Area × Category Row Share Heatmap");
 
   const heatmapBox = rightCol.append("div")
@@ -522,12 +597,34 @@ export async function areas(el, { data, lazy }) {
     .style("overflow", "hidden")
     .style("position", "relative");
 
+  const heatmapData = [];
+  summary.forEach(s => {
+    const areaTot = Number(s.total || 1);
+    categories.forEach(cat => {
+      const match = areaByCat.find(d => d.area === s.area && d.category === cat);
+      const count = match ? Number(match.count || 0) : 0;
+      heatmapData.push({
+        area: s.area,
+        category: cat,
+        count: count,
+        share: count / areaTot
+      });
+    });
+  });
+
+  const maxShare = d3.max(heatmapData, d => d.share) || 0.3;
+  const colorScale = (v) => ramp(v / maxShare);
+
+  // Numbered key at five evenly spaced shares, from 0 to the highest row share.
+  legend(rightCol, "Share of the division's incidents",
+    [0, 0.25, 0.5, 0.75, 1].map(t => ({ color: ramp(t), label: `${Math.round(t * maxShare * 100)}%` })));
+
   // Rows fill the heatmap box's measured height. Top margin fits the longest 45° category label
-  // (mono ≈ 0.62em/char at --fs-label, × sin 45°); bottom holds the colour key.
+  // (mono ≈ 0.62em/char at --fs-label, × sin 45°).
   const { width: hmBoxW, height: hmBoxH } = heatmapBox.node().getBoundingClientRect();
   const fsLabel = Math.max(11, window.innerWidth * 0.00833);
   const longestCat = d3.max(categories, c => c.length) || 20;
-  const hmMargin = { top: longestCat * fsLabel * 0.62 * 0.71 + 12, right: 20, bottom: 44 * k, left: 105 * k };
+  const hmMargin = { top: longestCat * fsLabel * 0.62 * 0.71 + 12, right: 20, bottom: 8 * k, left: 105 * k };
   const rowH = Math.max(14, Math.floor((hmBoxH - hmMargin.top - hmMargin.bottom) / summary.length));
   const cellWidth = Math.max(20, (hmBoxW - hmMargin.left - hmMargin.right - 60 * k) / categories.length);
   const hmWidth = categories.length * cellWidth + hmMargin.left + hmMargin.right;
@@ -551,7 +648,7 @@ export async function areas(el, { data, lazy }) {
     .attr("y", -8)
     .attr("text-anchor", "start")
     .attr("transform", d => `rotate(-45, ${xScale(d) + xScale.bandwidth() / 2}, -8)`)
-    .attr("fill", "var(--bone)")
+    .style("fill", "var(--bone)")
     .style("font-size", "var(--fs-label)")
     .text(d => d);
 
@@ -563,27 +660,10 @@ export async function areas(el, { data, lazy }) {
     .attr("x", -8)
     .attr("y", d => yScale(d) + yScale.bandwidth() / 2 + 3)
     .attr("text-anchor", "end")
-    .attr("fill", "var(--bone-60)")
+    .style("fill", "var(--bone-60)")
     .style("font-size", "var(--fs-small)")
     .text(d => d);
 
-  const heatmapData = [];
-  summary.forEach(s => {
-    const areaTot = Number(s.total || 1);
-    categories.forEach(cat => {
-      const match = areaByCat.find(d => d.area === s.area && d.category === cat);
-      const count = match ? Number(match.count || 0) : 0;
-      heatmapData.push({
-        area: s.area,
-        category: cat,
-        count: count,
-        share: count / areaTot
-      });
-    });
-  });
-
-  const maxShare = d3.max(heatmapData, d => d.share) || 0.3;
-  const colorScale = (v) => ramp(v / maxShare);
 
   const rects = hmG.selectAll(".hm-rect")
     .data(heatmapData)
@@ -609,31 +689,6 @@ export async function areas(el, { data, lazy }) {
     .on("mouseout", function () {
       tooltip.style("opacity", 0);
     });
-
-  // Colour key under the heatmap: the ramp in 8 steps, from the lowest to the highest row share.
-  // The key spans the heatmap grid exactly, from the first cell's left edge to the last cell's right edge.
-  const keySteps = d3.range(8).map(i => i / 7);
-  const keyX0 = xScale(categories[0]);
-  const keyW = xScale(categories[categories.length - 1]) + xScale.bandwidth() - keyX0;
-  const keyY = summary.length * rowH + 14 * k;
-  const key = hmG.append("g").attr("transform", `translate(${keyX0}, ${keyY})`);
-  key.selectAll("rect")
-    .data(keySteps)
-    .join("rect")
-    .attr("x", (d, i) => i * keyW / keySteps.length)
-    .attr("width", keyW / keySteps.length)
-    .attr("height", 10 * k)
-    .attr("fill", d => ramp(d));
-  key.append("text")
-    .attr("y", 10 * k + 14 * k)
-    .attr("fill", "var(--bone-60)")
-    .text("Low");
-  key.append("text")
-    .attr("x", keyW)
-    .attr("y", 10 * k + 14 * k)
-    .attr("text-anchor", "end")
-    .attr("fill", "var(--bone-60)")
-    .text(`High (${(maxShare * 100).toFixed(0)}% of the division's incidents)`);
 
   function updateHighlights() {
     barRows.selectAll(".area-bar")
@@ -661,7 +716,6 @@ export async function locations(el, { data, lazy }) {
     .style("gap", "var(--s-3)");
 
   const header = wrapper.append("div");
-  header.append("p").attr("class", "label").text("03 · WHERE");
   header.append("h2").text("The 12 busiest addresses");
   header.append("p")
     .attr("class", "caption")

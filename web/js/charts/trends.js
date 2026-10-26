@@ -60,7 +60,6 @@ export async function monthly(el, { data, lazy }) {
 
   // Header
   const header = wrapper.append("div");
-  header.append("p").attr("class", "label").text("02 · WHEN");
   header.append("h2").text("Monthly Crime Trends by Category");
   header.append("p")
     .attr("class", "caption")
@@ -141,7 +140,7 @@ export async function monthly(el, { data, lazy }) {
       .attr("x", innerW - 5)
       .attr("y", 15)
       .attr("text-anchor", "end")
-      .attr("fill", "var(--bone-60)")
+      .style("fill", "var(--bone-60)")
       .text("Sep 2026 (Partial Data)");
   }
 
@@ -189,7 +188,7 @@ export async function monthly(el, { data, lazy }) {
       .join("text")
       .attr("x", innerW + 8)
       .attr("dy", "0.35em")
-      .attr("fill", d => slots.color(d.cat))
+      .style("fill", d => slots.color(d.cat))
       .style("font-weight", "700")
       .text(d => `${d.cat} ${d3.format(",")(d.value)}`)
       .call(sel => animate(sel, firstDraw).attr("y", d => d.y));
@@ -239,7 +238,6 @@ export async function weekly(el, { data, lazy }) {
     .style("flex-direction", "column")
     .style("min-height", "0");
 
-  leftCol.append("p").attr("class", "label").text("02 · WHEN");
   leftCol.append("h2").text("Day-of-Week Distribution");
   leftCol.append("p")
     .attr("class", "caption")
@@ -341,7 +339,6 @@ export async function weekly(el, { data, lazy }) {
     .style("flex-direction", "column")
     .style("min-height", "0");
 
-  rightCol.append("p").attr("class", "label").text("TACTICAL FLAGS");
   rightCol.append("h2").text("Special Flag Monthly Trends");
   rightCol.append("p")
     .attr("class", "caption")

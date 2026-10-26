@@ -6,6 +6,7 @@
 
 import * as d3 from "https://cdn.jsdelivr.net/npm/d3@7.9.0/+esm";
 import { sankey, sankeyLeft, sankeyLinkHorizontal } from "https://cdn.jsdelivr.net/npm/d3-sankey@0.12.3/+esm";
+import { legend } from "../util.js";
 
 /**
  * Screen 1: Outcome Breakdown by Category (100% Stacked Bar)
@@ -39,7 +40,6 @@ export async function outcomes(el, { data, lazy }) {
     .style("align-items", "flex-end");
 
   const titleGroup = header.append("div");
-  titleGroup.append("p").attr("class", "label").text("08 · OUTCOMES");
   titleGroup.append("h2").text("Case Outcomes by Crime Category");
   titleGroup.append("p")
     .attr("class", "caption")
@@ -160,7 +160,7 @@ export async function outcomes(el, { data, lazy }) {
     .call(d3.axisLeft(yScale).tickSize(0))
     .call(g => g.select(".domain").remove())
     .selectAll("text")
-    .attr("fill", "var(--bone)")
+    .style("fill", "var(--bone)")
     .style("font-size", "var(--fs-small)")
     .style("font-family", "var(--font-mono)");
 
@@ -232,7 +232,6 @@ export async function funnel(el, { data, lazy }) {
     .style("gap", "var(--s-2)");
 
   const header = wrapper.append("div");
-  header.append("p").attr("class", "label").text("08 · OUTCOMES");
   header.append("h2").text("What happens after a report");
   header.append("p")
     .attr("class", "caption")
@@ -342,7 +341,7 @@ export async function funnel(el, { data, lazy }) {
     .attr("y", d => (d.y0 + d.y1) / 2)
     .attr("dy", "0.35em")
     .attr("text-anchor", d => d.depth === 0 ? "end" : "start")
-    .attr("fill", "var(--bone)")
+    .style("fill", "var(--bone)")
     .style("paint-order", "stroke")
     .style("stroke", "var(--bg)")
     .style("stroke-width", "3px")
@@ -359,7 +358,7 @@ export async function funnel(el, { data, lazy }) {
       .attr("y", (nc.y0 + nc.y1) / 2 + fsLabel * 1.2)
       .attr("dy", "0.9em")
       .attr("class", "num")
-      .attr("fill", "var(--signal)")
+      .style("fill", "var(--signal)")
       .style("font-size", "var(--fs-h3)")
       .style("font-weight", "700")
       .text(`${pctOf(nc.value, reported)} not cleared`);
@@ -392,7 +391,6 @@ export async function lag(el, { data, lazy }) {
     .style("gap", "var(--s-2)");
 
   const header = wrapper.append("div");
-  header.append("p").attr("class", "label").text("08 · OUTCOMES");
   header.append("h2").text("Reporting Lag Days by Crime Category");
   header.append("p")
     .attr("class", "caption")
@@ -440,6 +438,13 @@ export async function lag(el, { data, lazy }) {
     .style("padding", "var(--s-2)")
     .style("position", "relative")
     .style("overflow", "hidden");
+
+  // Box colour = median lag band (same thresholds as barColor below). Added before measuring the box.
+  legend(wrapper, "Median lag", [
+    { color: "var(--bone)", label: "0 days" },
+    { color: "var(--bone-60)", label: "1–7 days" },
+    { color: "var(--signal)", label: "Over 7 days" },
+  ]);
 
   const lagData = (Array.isArray(rawData) ? rawData : []).slice().sort((a, b) => Number(b.median || 0) - Number(a.median || 0));
 
@@ -523,7 +528,7 @@ export async function lag(el, { data, lazy }) {
       .attr("y", yCenter)
       .attr("dy", "0.35em")
       .attr("text-anchor", "end")
-      .attr("fill", "var(--bone)")
+      .style("fill", "var(--bone)")
       .style("font-size", "var(--fs-small)")
       .text(d.category);
 
@@ -533,7 +538,7 @@ export async function lag(el, { data, lazy }) {
       .attr("dy", "0.35em")
       .attr("text-anchor", "middle")
       .attr("class", "num")
-      .attr("fill", medVal > 7 ? "var(--bone)" : "var(--bone-60)")
+      .style("fill", medVal > 7 ? "var(--bone)" : "var(--bone-60)")
       .style("font-weight", "700")
       .text(`${medVal}d`);
 

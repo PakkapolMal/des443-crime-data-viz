@@ -26,8 +26,25 @@ export const color = {
   signal: token("--signal"), signalFill: token("--signal-fill"),
 };
 // Sequential ramp over a 0..1 value; zero / no data draws no mark (DESIGN.md).
-export const ramp = d3.scaleLinear([0, 1 / 3, 2 / 3, 1], ["--ramp-0", "--ramp-1", "--ramp-2", "--ramp-3"].map(token))
-  .clamp(true);
+const RAMP = ["--ramp-0", "--ramp-1", "--ramp-2", "--ramp-3", "--ramp-4"].map(token);
+export const ramp = d3.scaleLinear([0, 0.25, 0.5, 0.75, 1], RAMP).clamp(true);
+
+// Skewed counts (density map, co-occurrence): one ramp step per order of magnitude, fixed across
+// filters so a colour always means the same count range. countKey feeds legend().
+export const countColor = d3.scaleThreshold([10, 100, 1000, 10000], RAMP);
+export const countKey = ["1–9", "10–99", "100–999", "1k–9.9k", "10k+"].map((label, i) => ({ color: RAMP[i], label }));
+
+// Colour key: a title, then one swatch per item with its value beside it. items: [{ color, label }].
+export function legend(parent, title, items) {
+  const key = parent.append("div").attr("class", "legend");
+  key.append("span").attr("class", "legend-title").text(title);
+  items.forEach(({ color, label }) => {
+    const item = key.append("span").attr("class", "legend-item");
+    item.append("i").style("background", color);
+    item.append("span").attr("class", "num").text(label);
+  });
+  return key;
+}
 
 // One shared tooltip element: tooltip.show(html, event) on hover, tooltip.hide() on leave.
 const tip = document.getElementById("tooltip");

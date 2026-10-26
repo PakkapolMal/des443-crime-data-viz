@@ -18,12 +18,13 @@
   --signal: #e5383b;       /* text + data marks; text only at large/bold sizes (4.35-4.65:1) */
   --signal-fill: #9d0208;  /* fills only (primary button, highlighted bar); never text */
 
-  /* Chart ramp: #2a2a2a -> #9d0208 -> #e5383b -> bone. Projectors lift black to grey, so the
-     low end is a visible neutral (not black or #4a0404, which merge on a projector). */
-  --ramp-0: #2a2a2a;
-  --ramp-1: #9d0208;
-  --ramp-2: #e5383b;
-  --ramp-3: #e8e2d6;
+  /* Chart ramp: darkest red (least) -> pure red (most); brighter always means more. */
+  --ramp-0: #520101;
+  --ramp-1: #840000;
+  --ramp-2: #a60000;
+  --ramp-3: #cf0000;
+  --ramp-4: #ff0000;
+  --neutral-fill: #2a2a2a;  /* grey for non-highlighted marks (offense treemap leaves) */
   --context: var(--bone-60);  /* non-highlighted series */
 
   /* Categorical hues (DESIGN.md "Categorical hues"). One hue = one meaning; never red.

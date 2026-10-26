@@ -5,7 +5,7 @@
  */
 
 import * as d3 from "https://cdn.jsdelivr.net/npm/d3@7.9.0/+esm";
-import { CATEGORIES, ramp, VIOLENT_CATEGORIES } from "../util.js";
+import { CATEGORIES, VIOLENT_CATEGORIES, countColor, countKey, legend } from "../util.js";
 
 /**
  * Screen 1: NIBRS Offense Classification Hierarchy Treemap
@@ -39,7 +39,6 @@ export async function hierarchy(el, { data, lazy }) {
     .style("align-items", "flex-end");
 
   const titleGroup = header.append("div");
-  titleGroup.append("p").attr("class", "label").text("05 · OFFENSES");
   titleGroup.append("h2").text("NIBRS Offense Classification Hierarchy");
   titleGroup.append("p")
     .attr("class", "caption")
@@ -143,7 +142,7 @@ export async function hierarchy(el, { data, lazy }) {
   // Red = violent crime (same categories as the KPI violent share); every other tile is neutral.
   const catOf = d => d.ancestors().find(a => a.depth === 2);
   const isViolent = d => d.ancestors().some(a => a.data.violent);
-  const leafFill = d => isViolent(d) ? "var(--signal-fill)" : (d.data.rollup ? "var(--surface)" : "var(--ramp-0)");
+  const leafFill = d => isViolent(d) ? "var(--signal-fill)" : (d.data.rollup ? "var(--surface)" : "var(--neutral-fill)");
   const pct = d => `${((d.value / totalValue) * 100).toFixed(1)}%`;
 
   const svg = chartBox.append("svg")
@@ -185,7 +184,7 @@ export async function hierarchy(el, { data, lazy }) {
   parents.append("text")
     .attr("x", d => d.x0 + 6)
     .attr("y", d => d.y0 + HEADER * 0.68)
-    .attr("fill", d => d.depth === 1 ? "var(--bone)" : "var(--bone-60)")
+    .style("fill", d => d.depth === 1 ? "var(--bone)" : "var(--bone-60)")
     .style("font-weight", "700")
     .style("letter-spacing", "var(--tracking-label)")
     .style("pointer-events", "none")
@@ -241,14 +240,14 @@ export async function hierarchy(el, { data, lazy }) {
     const g = d3.select(this);
     const name = g.append("text")
       .attr("x", 6).attr("y", "1.3em")
-      .attr("fill", d.data.rollup ? "var(--bone-60)" : "var(--bone)")
+      .style("fill", d.data.rollup ? "var(--bone-60)" : "var(--bone)")
       .style("pointer-events", "none")
       .text(getNodeName(d.data));
     fitText(name, boxW, boxH - 4);
     if (!name.node().isConnected) return;
     const val = g.append("text")
       .attr("x", 6).attr("y", "2.6em")
-      .attr("fill", "var(--bone-60)")
+      .style("fill", "var(--bone-60)")
       .attr("class", "num")
       .style("pointer-events", "none")
       .text(`${d3.format(",")(d.value)} · ${((d.value / totalValue) * 100).toFixed(1)}%`);
@@ -283,7 +282,6 @@ export async function cooccurrence(el, { data, lazy }) {
     .style("gap", "var(--s-2)");
 
   const header = wrapper.append("div");
-  header.append("p").attr("class", "label").text("05 · OFFENSES");
   header.append("h2").text("Offense Category Co-occurrence Matrix");
   header.append("p")
     .attr("class", "caption")
@@ -340,6 +338,9 @@ export async function cooccurrence(el, { data, lazy }) {
   // Fixed severity order (DESIGN.md); anything outside CATEGORIES goes last.
   const items = [...CATEGORIES.filter(c => present.has(c)), ...[...present].filter(c => c && !CATEGORIES.includes(c)).sort()];
 
+  // Added before measuring the chart box so the matrix is sized around it.
+  legend(wrapper, "Incidents sharing both categories", countKey);
+
   const bbox = chartBox.node()?.getBoundingClientRect() || {};
   const width = bbox.width || 900;
   const height = bbox.height || 450;
@@ -363,10 +364,8 @@ export async function cooccurrence(el, { data, lazy }) {
   const xScale = d3.scaleBand().domain(items).range([0, innerW]).padding(0.08);
   const yScale = d3.scaleBand().domain(items).range([0, innerH]).padding(0.08);
 
-  const maxVal = d3.max(rawData, d => Number(d.value || d.count || 0)) || 100;
-  // DESIGN.md ramp on a log domain: pair counts are heavily skewed (median ~50, max ~11.6k).
-  const logMax = Math.log(Math.max(2, maxVal));
-  const colorScale = (v) => ramp(Math.log(Math.max(1, v)) / logMax);
+  // Log classes: pair counts are heavily skewed (median ~50, max ~11.6k).
+  const colorScale = countColor;
 
   // X Axis
   g.append("g")
@@ -378,7 +377,7 @@ export async function cooccurrence(el, { data, lazy }) {
     .attr("y", -10)
     .attr("text-anchor", "start")
     .attr("transform", d => `rotate(-45, ${xScale(d) + xScale.bandwidth() / 2}, -10)`)
-    .attr("fill", "var(--bone)")
+    .style("fill", "var(--bone)")
     .style("font-size", "var(--fs-label)")
     .style("font-family", "var(--font-mono)")
     .text(d => d);
@@ -392,7 +391,7 @@ export async function cooccurrence(el, { data, lazy }) {
     .attr("x", -10)
     .attr("y", d => yScale(d) + yScale.bandwidth() / 2 + 3)
     .attr("text-anchor", "end")
-    .attr("fill", "var(--bone-60)")
+    .style("fill", "var(--bone-60)")
     .style("font-size", "var(--fs-small)")
     .style("font-family", "var(--font-mono)")
     .text(d => d);
@@ -467,7 +466,6 @@ export async function distribution(el, { data, lazy }) {
     .style("gap", "var(--s-2)");
 
   const header = wrapper.append("div");
-  header.append("p").attr("class", "label").text("05 · OFFENSES");
   header.append("h2").text("Offenses Per Incident Report");
   header.append("p")
     .attr("class", "caption")

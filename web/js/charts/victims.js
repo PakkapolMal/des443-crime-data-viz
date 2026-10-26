@@ -32,7 +32,6 @@ export async function pyramid(el, { data, lazy }) {
     .style("gap", "var(--s-2)");
 
   const header = wrapper.append("div");
-  header.append("p").attr("class", "label").text("07 · VICTIMS");
   header.append("h2").text("Victim Demographics Population Pyramid");
   header.append("p")
     .attr("class", "caption")
@@ -50,8 +49,9 @@ export async function pyramid(el, { data, lazy }) {
     .style("font-family", "var(--font-mono)")
     .style("font-size", "var(--fs-small)");
 
-  const ageBins = ["0-17", "18-24", "25-34", "35-44", "45-54", "55-64", "65+"];
-  
+  // Bins come from the data (pipeline AGE_LABELS); labels sort correctly by their leading number.
+  const ageBins = [...new Set(rawData.map(d => String(d.age_group)))].sort((a, b) => parseInt(a) - parseInt(b));
+
   const maleData = new Map();
   const femaleData = new Map();
 
@@ -101,6 +101,13 @@ export async function pyramid(el, { data, lazy }) {
     .style("background", "var(--surface)")
     .style("border", "var(--rule)")
     .style("position", "relative");
+
+  // Appended before measuring so chartBox's flex height already excludes it. Bold: --signal text needs it for contrast.
+  wrapper.append("p")
+    .attr("class", "caption")
+    .style("color", "var(--signal)")
+    .style("font-weight", "700")
+    .text("Victims under 18 are not in the source data.");
 
   const bbox = chartBox.node()?.getBoundingClientRect() || {};
   const width = bbox.width || 800;
@@ -154,7 +161,7 @@ export async function pyramid(el, { data, lazy }) {
     .attr("x", width / 2)
     .attr("y", d => yScale(d) + yScale.bandwidth() / 2 + 4)
     .attr("text-anchor", "middle")
-    .attr("fill", "var(--bone)")
+    .style("fill", "var(--bone)")
     .style("font-size", "var(--fs-small)")
     .style("font-family", "var(--font-mono)")
     .style("font-weight", "600")
@@ -259,7 +266,6 @@ export async function type(el, { data, lazy }) {
     .style("gap", "var(--s-2)");
 
   const header = wrapper.append("div");
-  header.append("p").attr("class", "label").text("07 · VICTIMS");
   header.append("h2").text("Victim Classification Mix");
   header.append("p")
     .attr("class", "caption")
@@ -341,7 +347,7 @@ export async function type(el, { data, lazy }) {
     .call(d3.axisLeft(yScale).tickSize(0))
     .call(g => g.select(".domain").remove())
     .selectAll("text")
-    .attr("fill", "var(--bone)")
+    .style("fill", "var(--bone)")
     .style("font-size", "var(--fs-small)")
     .style("font-family", "var(--font-mono)");
 
@@ -393,7 +399,7 @@ export async function type(el, { data, lazy }) {
   bars.append("text")
     .attr("y", d => yScale(String(d.victim_type || d.type || "Unknown")) + yScale.bandwidth() / 2 + 3)
     .attr("x", d => xScale(Number(d.count || 0)) + 8)
-    .attr("fill", "var(--bone-60)")
+    .style("fill", "var(--bone-60)")
     .style("font-size", "var(--fs-label)")
     .style("font-family", "var(--font-mono)")
     .text(d => {
@@ -437,7 +443,6 @@ export async function descent(el, { data, lazy }) {
     .style("align-items", "flex-end");
 
   const titleGroup = header.append("div");
-  titleGroup.append("p").attr("class", "label").text("07 · VICTIMS");
   titleGroup.append("h2").text("Victim Descent / Ethnic Group Distribution");
   titleGroup.append("p")
     .attr("class", "caption")
@@ -562,7 +567,7 @@ export async function descent(el, { data, lazy }) {
       .call(d3.axisLeft(yScale).tickSize(0))
       .call(g => g.select(".domain").remove())
       .selectAll("text")
-      .attr("fill", "var(--bone)")
+      .style("fill", "var(--bone)")
       .style("font-size", "var(--fs-small)")
       .style("font-family", "var(--font-mono)");
 
@@ -612,7 +617,7 @@ export async function descent(el, { data, lazy }) {
     bars.append("text")
       .attr("y", d => yScale(d.descent) + yScale.bandwidth() / 2 + 3)
       .attr("x", d => xScale(d.count) + 8)
-      .attr("fill", "var(--bone-60)")
+      .style("fill", "var(--bone-60)")
       .style("font-size", "var(--fs-label)")
       .style("font-family", "var(--font-mono)")
       .text(d => `${d3.format(",")(d.count)} (${((d.count / totalCount) * 100).toFixed(1)}%)`);

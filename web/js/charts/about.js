@@ -1,10 +1,20 @@
 /**
  * Chapter 9: #about — Data Overview, Methodology & Caveats
- * Exports: about, caveats, methodology (with router aliases: overview, limitations, pipeline, default)
+ * Exports: about, notes (methodology | caveats side by side), caveats, methodology (with router aliases)
  * Data sources: kpi.json
  */
 
 import * as d3 from "https://cdn.jsdelivr.net/npm/d3@7.9.0/+esm";
+
+// Credits shown on the About screen.
+const TEAM = [
+  "Phattharathida Y. (6622772356)", "Pakapon T. (6622772877)", "Thayakorn T. (6622780011)",
+  "Pakkapol M. (6622780854)", "Thanutch Mel P. (6622780870)", "Phunyaphat V. (6622781027)",
+  "Tanadol W. (6622781050)", "Nattaporn L. (6622781092)", "Kantapon M. (6622781241)",
+  "Chatyapa M. (6622781399)",
+];
+const COURSE = "DES433 Data Visualization";
+const REPO = "https://github.com/PakkapolMal/des443-crime-data-viz";
 
 /**
  * Screen 1: Dataset Overview & Interactive Schema Architecture
@@ -14,6 +24,7 @@ export async function about(el, { data, lazy }) {
   container.html("");
 
   const kpi = data?.kpi || (await lazy?.("kpi")) || {};
+  const snapshot = kpi.snapshot_date || "2026-10-12";
 
   const wrapper = container.append("div")
     .style("display", "flex")
@@ -30,7 +41,6 @@ export async function about(el, { data, lazy }) {
     .style("align-items", "flex-end");
 
   const titleGroup = header.append("div");
-  titleGroup.append("p").attr("class", "label").text("09 · ABOUT");
   titleGroup.append("h2").text("LAPD NIBRS Crime Data Visualization Project");
   titleGroup.append("p")
     .attr("class", "caption")
@@ -155,6 +165,27 @@ export async function about(el, { data, lazy }) {
     <div class="caption" style="margin-top:4px;">Victim Type, Age Group, Sex, Descent, Offense List</div>
   `);
 
+  // Credits under the schema diagram: team in two columns, then tools, course and code.
+  const credits = specCard.append("div")
+    .attr("class", "caption")
+    .style("display", "grid")
+    .style("grid-template-columns", "auto 1fr")
+    .style("gap", "var(--s-1) var(--s-2)")
+    .style("line-height", "1.4");
+  const row = (label) => {
+    credits.append("span").attr("class", "label").text(label);
+    return credits.append("div").style("color", "var(--bone)");
+  };
+  row("Team")
+    .style("display", "grid")
+    .style("grid-template-columns", "repeat(2, max-content)")
+    .style("gap", "0 var(--s-4)")
+    .style("white-space", "nowrap")
+    .selectAll("span").data(TEAM).join("span").text(d => d);
+  row("Built with").html(`<a href="https://d3js.org" target="_blank" rel="noopener">D3 v7.9.0</a> · <a href="https://github.com/d3/d3-sankey" target="_blank" rel="noopener">d3-sankey 0.12.3</a> · Python, pandas`);
+  row("Course").text(COURSE);
+  row("Code").html(`<a href="${REPO}" target="_blank" rel="noopener">${REPO.replace("https://", "")}</a>`);
+
   // Source Endpoints Panel
   const endpointCard = mainPanel.append("div")
     .style("background", "var(--surface)")
@@ -180,7 +211,7 @@ export async function about(el, { data, lazy }) {
       <a href="https://data.lacity.org/d/k7nn-b2ep" target="_blank" class="label" style="color:var(--bone-60); text-decoration:none; border:var(--rule); padding:2px 6px;">k7nn-b2ep ↗</a>
     </div>
     <p class="caption" style="margin:0; line-height:1.4;">
-      Published by LAPD on LA Open Data. Updated continuously with incident details, weapon classifications, and geocoded locations.
+      LAPD on LA Open Data, snapshot of ${snapshot}. One row per offense: statute, premise, weapon code, location.
     </p>
   `);
 
@@ -195,13 +226,27 @@ export async function about(el, { data, lazy }) {
       <a href="https://data.lacity.org/d/gqf2-vm2j" target="_blank" class="label" style="color:var(--bone-60); text-decoration:none; border:var(--rule); padding:2px 6px;">gqf2-vm2j ↗</a>
     </div>
     <p class="caption" style="margin:0; line-height:1.4;">
-      Captures victim entity classifications (Individuals, Commercial Businesses, Society) and demography.
+      LAPD on LA Open Data, snapshot of ${snapshot}. One row per victim: type, age, sex, descent, offenses.
     </p>
   `);
 }
 
 /**
- * Screen 2: Mandatory Dashboard Caveats & Limitations
+ * Screen 2: Methodology (left half) and caveats (right half) on one screen.
+ */
+export async function notes(el) {
+  const grid = d3.select(el).html("").append("div")
+    .style("display", "grid")
+    .style("grid-template-columns", "1fr 1fr")
+    .style("gap", "var(--s-4)")
+    .style("height", "100%")
+    .style("min-height", "0");
+  await methodology(grid.append("div").style("min-height", "0").node());
+  await caveats(grid.append("div").style("min-height", "0").node());
+}
+
+/**
+ * Caveats & limitations (rendered by notes)
  */
 export async function caveats(el) {
   const container = d3.select(el);
@@ -216,8 +261,7 @@ export async function caveats(el) {
     .style("gap", "var(--s-2)");
 
   const header = wrapper.append("div");
-  header.append("p").attr("class", "label").text("09 · ABOUT");
-  header.append("h2").text("Dashboard Limitations & Analytical Caveats");
+  header.append("h2").text("Caveats");
   header.append("p")
     .attr("class", "caption")
     .style("margin-top", "var(--s-1)")
@@ -257,7 +301,7 @@ export async function caveats(el) {
       title: "Victim Descent vs. Population Rates",
       desc: "Victim descent distributions represent raw counts of reported crime victims. They are not population-adjusted rates and imply no suspect demographics.",
       tag: "DEMOGRAPHICS",
-      tagColor: "var(--hairline)"
+      tagColor: "var(--bone-60)"
     }
   ];
 
@@ -265,7 +309,7 @@ export async function caveats(el) {
     const box = grid.append("div")
       .style("background", "var(--surface)")
       .style("border", "var(--rule)")
-      .style("padding", "var(--s-3)")
+      .style("padding", "var(--s-2) var(--s-3)")
       .style("display", "flex")
       .style("flex-direction", "column")
       .style("gap", "var(--s-1)");
@@ -296,7 +340,7 @@ export async function caveats(el) {
 }
 
 /**
- * Screen 3: Pipeline Architecture & Processing Rules
+ * Pipeline methodology (rendered by notes)
  */
 export async function methodology(el) {
   const container = d3.select(el);
@@ -311,8 +355,7 @@ export async function methodology(el) {
     .style("gap", "var(--s-2)");
 
   const header = wrapper.append("div");
-  header.append("p").attr("class", "label").text("09 · ABOUT");
-  header.append("h2").text("Data Processing & Pipeline Methodology");
+  header.append("h2").text("Methodology");
   header.append("p")
     .attr("class", "caption")
     .style("margin-top", "var(--s-1)")
@@ -360,7 +403,7 @@ export async function methodology(el) {
       .style("font-size", "var(--fs-h2)")
       .style("font-weight", "700")
       .style("font-family", "var(--font-mono)")
-      .style("color", "var(--signal)")
+      .style("color", "var(--bone)")
       .text(s.num);
 
     const textGroup = card.append("div");
