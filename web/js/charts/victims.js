@@ -50,8 +50,9 @@ export async function pyramid(el, { data, lazy }) {
     .style("font-family", "var(--font-mono)")
     .style("font-size", "var(--fs-small)");
 
-  const ageBins = ["0-17", "18-24", "25-34", "35-44", "45-54", "55-64", "65+"];
-  
+  // Bins come from the data (pipeline AGE_LABELS); labels sort correctly by their leading number.
+  const ageBins = [...new Set(rawData.map(d => String(d.age_group)))].sort((a, b) => parseInt(a) - parseInt(b));
+
   const maleData = new Map();
   const femaleData = new Map();
 
@@ -101,6 +102,13 @@ export async function pyramid(el, { data, lazy }) {
     .style("background", "var(--surface)")
     .style("border", "var(--rule)")
     .style("position", "relative");
+
+  // Appended before measuring so chartBox's flex height already excludes it. Bold: --signal text needs it for contrast.
+  wrapper.append("p")
+    .attr("class", "caption")
+    .style("color", "var(--signal)")
+    .style("font-weight", "700")
+    .text("Victims under 18 are not in the source data.");
 
   const bbox = chartBox.node()?.getBoundingClientRect() || {};
   const width = bbox.width || 800;

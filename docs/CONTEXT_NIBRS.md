@@ -259,8 +259,9 @@ def norm_descent(v):
 ```python
 age = pd.to_numeric(df["Vict Age"], errors="coerce")
 age = age.where(age.between(1, 99))
-AGE_BINS   = [0, 17, 24, 34, 44, 54, 64, 99]
-AGE_LABELS = ["0-17", "18-24", "25-34", "35-44", "45-54", "55-64", "65+"]
+# No victims under 18 in the source (min age 18), so no 0-17 bin.
+AGE_BINS   = [17, 24, 29, 34, 39, 44, 49, 54, 59, 64, 69, 74, 79, 84, 99]
+AGE_LABELS = ["18-24", "25-29", "30-34", "35-39", "40-44", "45-49", "50-54", "55-59", "60-64", "65-69", "70-74", "75-79", "80-84", "85+"]
 ```
 
 ---
