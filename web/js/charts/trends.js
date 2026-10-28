@@ -232,7 +232,7 @@ export async function weekly(el, { data, lazy }) {
     .style("width", "100%")
     .style("height", "100%");
 
-  // Left Panel: one grouped day-of-week bar chart; checkboxes pick up to MAX_SERIES categories.
+  // Left Panel: one grouped day-of-week bar chart; legend entries pick up to MAX_SERIES categories.
   const leftCol = wrapper.append("div")
     .style("display", "flex")
     .style("flex-direction", "column")
@@ -243,7 +243,7 @@ export async function weekly(el, { data, lazy }) {
     .attr("class", "caption")
     .style("margin-top", "var(--s-1)")
     .style("margin-bottom", "var(--s-2)")
-    .text(`Incidents by weekday. Tick up to ${MAX_SERIES} categories to compare.`);
+    .text(`Incidents by weekday. Click legend entries to compare up to ${MAX_SERIES} categories.`);
 
   const present = new Set(dowData.map(d => d.category));
   const categories = CATEGORIES.filter(c => present.has(c));
@@ -259,24 +259,21 @@ export async function weekly(el, { data, lazy }) {
 
   const plot = body.append("div").style("min-height", "0").style("position", "relative");
 
-  // Checkbox list (top-right). Each ticked box shows its series colour, so the list is the legend.
+  // Legend (top-right) doubles as the filter: click an entry to toggle it; picked entries show their series colour.
   const picker = body.append("div")
-    .attr("class", "label")
     .style("display", "flex")
     .style("flex-direction", "column")
     .style("gap", "2px");
-  const rows = picker.selectAll("label")
+  const rows = picker.selectAll("button")
     .data(categories)
-    .join("label")
+    .join("button")
     .style("display", "flex")
     .style("align-items", "center")
     .style("gap", "var(--s-1)")
-    .style("cursor", "pointer");
-  const boxes = rows.append("input")
-    .attr("type", "checkbox")
-    .style("margin", "0")
-    .style("accent-color", "var(--bone)")
-    .on("change", (event, cat) => { slots.toggle(cat); drawDow(); });
+    .style("border", "none")
+    .style("padding", "2px 0")
+    .style("text-align", "left")
+    .on("click", (event, cat) => { slots.toggle(cat); drawDow(); });
   rows.append("span").attr("class", "swatch").style("width", "0.8em").style("height", "0.8em");
   rows.append("span").text(d => d);
 
@@ -294,10 +291,9 @@ export async function weekly(el, { data, lazy }) {
   const barsG = dowG.append("g");
 
   function drawDow() {
-    rows.select("input")
-      .property("checked", c => slots.has(c))
+    rows
+      .attr("aria-pressed", c => slots.has(c) ? "true" : "false")
       .property("disabled", c => !slots.has(c) && slots.full());
-    rows.style("color", c => (!slots.has(c) && slots.full()) ? "var(--bone-35)" : "var(--bone)");
     rows.select(".swatch")
       .style("background", c => slots.has(c) ? slots.color(c) : "none")
       .style("border", c => slots.has(c) ? "none" : "var(--rule)");
