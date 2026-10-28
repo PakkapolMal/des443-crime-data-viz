@@ -340,8 +340,14 @@ export async function weekly(el, { data, lazy }) {
     .attr("class", "caption")
     .style("margin-top", "var(--s-1)")
     .style("margin-bottom", "var(--s-2)")
-    .text("Tactical flag counts over time (DV, gang, transit, hate, shots fired).");
+    .text("Monthly incidents with flags from the source data. One incident can carry several flags.");
 
+  // Dropdown shows the LAPD source column each flag comes from (pipeline FLAG_COLS, reversed).
+  const FLAG_SOURCE = {
+    victim_shot: "Victim Shot", dv: "Domestic Violence Crime", hate: "Hate Crime",
+    gang: "Gang-related Crime", transit: "Transit-related Crime", homeless_victim: "Homeless-Victim Crime",
+    homeless_suspect: "Homeless-Suspect Crime", homeless_arrestee: "Homeless-Arrestee Crime",
+  };
   const flags = Array.from(new Set(flagsData.map(d => d.flag))).sort();
   let selectedFlag = flags[0] || "dv";
 
@@ -366,7 +372,7 @@ export async function weekly(el, { data, lazy }) {
   flags.forEach(f => {
     flagSelect.append("option")
       .attr("value", f)
-      .text(f.toUpperCase().replace("_", " "));
+      .text(FLAG_SOURCE[f] || f);
   });
 
   const flagBox = rightCol.append("div")
