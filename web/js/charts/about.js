@@ -265,6 +265,7 @@ export async function caveats(el) {
   header.append("p")
     .attr("class", "caption")
     .style("margin-top", "var(--s-1)")
+    .style("min-height", "calc(2em * var(--lh-body))")
     .text("Essential guidelines for accurate data interpretation and public policy application.");
 
   const grid = wrapper.append("div")
@@ -359,7 +360,8 @@ export async function methodology(el) {
   header.append("p")
     .attr("class", "caption")
     .style("margin-top", "var(--s-1)")
-    .text("Automated data cleaning, deduplication, and primary offense selection rules.");
+    .style("min-height", "calc(2em * var(--lh-body))")
+    .text("Automated data cleaning, deduplication techniques, and primary offense selection rules.");
 
   const list = wrapper.append("div")
     .style("display", "flex")
