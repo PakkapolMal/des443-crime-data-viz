@@ -377,7 +377,7 @@ export async function methodology(el) {
     {
       num: "02",
       title: "Primary Offense Severity Ranking",
-      desc: "Multi-offense incidents are assigned a primary offense using severity rank: Homicide > Sex Offense > Robbery > Aggravated Assault > Burglary > Larceny. Ties break on lowest UniqueNIBRNo."
+      desc: "Multi-offense incidents are assigned a primary offense using severity rank: Homicide > Sexual Offense > Robbery > Serious Assault > Burglary > Theft. Ties break on lowest UniqueNIBRNo."
     },
     {
       num: "03",

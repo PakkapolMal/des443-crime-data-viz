@@ -49,7 +49,7 @@ export async function monthly(el, { data, lazy }) {
 
   const present = new Set(formatted.map(d => d.category));
   const categories = CATEGORIES.filter(c => present.has(c));
-  const slots = seriesSlots(["Larceny/Theft", "Weapon Law"].filter(c => present.has(c)));
+  const slots = seriesSlots(["Theft", "Weapons"].filter(c => present.has(c)));
 
   const wrapper = container.append("div")
     .style("display", "flex")
@@ -247,7 +247,7 @@ export async function weekly(el, { data, lazy }) {
 
   const present = new Set(dowData.map(d => d.category));
   const categories = CATEGORIES.filter(c => present.has(c));
-  const slots = seriesSlots(["Larceny/Theft", "Simple Assault/Intimidation"].filter(c => present.has(c)));
+  const slots = seriesSlots(["Theft", "Minor Assault"].filter(c => present.has(c)));
   const countOf = new Map(dowData.map(d => [`${d.category}|${d.dow}`, Number(d.count || 0)]));
 
   const body = leftCol.append("div")

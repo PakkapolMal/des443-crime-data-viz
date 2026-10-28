@@ -22,7 +22,7 @@ export async function scatter(el, { data, lazy }) {
   const areaByCat = Array.isArray(rawByCat) ? rawByCat : [];
 
   const categories = Array.from(new Set(areaByCat.map(d => d.category))).sort();
-  let selectedCategory = categories.includes("Larceny/Theft") ? "Larceny/Theft" : (categories[0] || "Larceny/Theft");
+  let selectedCategory = categories.includes("Theft") ? "Theft" : (categories[0] || "Theft");
 
   // Global Tooltip
   let tooltip = d3.select("body").select("#tooltip");
@@ -404,7 +404,7 @@ export async function rankings(el, { data, lazy }) {
   const areaByCat = Array.isArray(rawByCat) ? rawByCat : [];
 
   const categories = Array.from(new Set(areaByCat.map(d => d.category))).sort();
-  let selectedCategory = categories.includes("Motor Vehicle Theft") ? "Motor Vehicle Theft" : (categories[0] || "Motor Vehicle Theft");
+  let selectedCategory = categories.includes("Car Theft") ? "Car Theft" : (categories[0] || "Car Theft");
 
   // Global Tooltip
   let tooltip = d3.select("body").select("#tooltip");

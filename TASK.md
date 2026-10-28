@@ -92,7 +92,7 @@ Open question: there's no basemap yet. Decide between plain cells over an LA are
 - [ ] `python src/validate_nibrs.py` still passes, because the data is unchanged
 
 ## Open: category wording (review v2, 2026-10-24)
-- [ ] Recheck every category name a lay audience sees. "Weapon Law" reads as "a weapon was used" (it means weapon-law violations), and "Group B" (arrest-only offenses such as DUI or trespass) means nothing to non-specialists. Also review "Other Group A" and "Unmapped". Change display labels only, through one shared label map; the JSON values stay unchanged. Candidates are in `docs/analysis_v2.md` → *Category wording*.
+- [x] Recheck every category name a lay audience sees. Done 2026-10-28: the categories themselves were renamed in the pipeline (not display-only), so the JSON values changed: Sexual Offense, Serious Assault, Minor Assault, Car Theft, Vandalism, Theft, Fraud, Weapons, Other (was Other Group A), Violations (was Group B). Homicide, Human Trafficking, Kidnapping, Robbery, Burglary, Drugs and Unmapped are unchanged. Statute 10851(A) VC (take vehicle without owner's consent) now maps to Car Theft whatever NIBRS code LAPD gave it.
 
 ## After all pages are done
 - [ ] Save local copies of D3, d3-sankey and both fonts (Instrument Serif, JetBrains Mono) in the repo and load them from there, so the page works without classroom Wi-Fi. Until then they load from jsDelivr and Google Fonts.

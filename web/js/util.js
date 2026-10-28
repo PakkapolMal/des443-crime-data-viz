@@ -6,17 +6,17 @@ export const fmtPct = d3.format(".1%");
 
 // Severity order from CONTEXT_NIBRS.md (CATEGORY_RANK). Fixed order on every page; no hue per category (DESIGN.md).
 export const CATEGORIES = [
-  "Homicide", "Sex Offense", "Human Trafficking", "Kidnapping", "Robbery",
-  "Aggravated Assault", "Burglary", "Motor Vehicle Theft", "Vandalism/Arson",
-  "Larceny/Theft", "Fraud/Identity", "Simple Assault/Intimidation",
-  "Weapon Law", "Drugs", "Other Group A", "Group B", "Unmapped",
+  "Homicide", "Sexual Offense", "Human Trafficking", "Kidnapping", "Robbery",
+  "Serious Assault", "Burglary", "Car Theft", "Vandalism",
+  "Theft", "Fraud", "Minor Assault",
+  "Weapons", "Drugs", "Other", "Violations", "Unmapped",
 ];
 
 // FBI violent crime, as categories. kpi.violent_share_fbi uses FBI_VIOLENT_CODES (09A/B, 11A-D, 120, 13A)
 // on the primary offense; every one of those codes maps to these four categories.
-// ponytail: Sex Offense also holds 36A/36B (incest, statutory), which the KPI excludes; files without
+// ponytail: Sexual Offense also holds 36A/36B (incest, statutory), which the KPI excludes; files without
 // nibr_code can't split it. Add nibr_code to the export if the gap matters.
-export const VIOLENT_CATEGORIES = new Set(["Homicide", "Sex Offense", "Robbery", "Aggravated Assault"]);
+export const VIOLENT_CATEGORIES = new Set(["Homicide", "Sexual Offense", "Robbery", "Serious Assault"]);
 
 // Colours come from tokens.css so CSS stays the single source.
 const css = getComputedStyle(document.documentElement);

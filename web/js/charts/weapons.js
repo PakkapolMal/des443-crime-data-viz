@@ -202,7 +202,7 @@ export async function byCategory(el, { data, lazy }) {
     .style("gap", "var(--s-2)");
 
   const categories = Array.from(new Set(rawData.map(d => d.category))).filter(Boolean).sort();
-  let selectedCat = categories.includes("Aggravated Assault") ? "Aggravated Assault" : (categories[0] || "All");
+  let selectedCat = categories.includes("Serious Assault") ? "Serious Assault" : (categories[0] || "All");
 
   const header = wrapper.append("div")
     .style("display", "flex")

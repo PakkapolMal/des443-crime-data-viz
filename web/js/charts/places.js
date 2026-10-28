@@ -776,7 +776,7 @@ export async function locations(el, { data, lazy }) {
     row.append("td")
       .style("padding", "var(--s-2) var(--s-3)")
       .style("color", "var(--bone-60)")
-      .text(d.top_category || "Group B");
+      .text(d.top_category || "Violations");
 
     row.append("td")
       .attr("class", "num")

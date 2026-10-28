@@ -106,40 +106,40 @@ Run `src/validate_nibrs.py`. The checks are listed in `CLAUDE.md` under the NIBR
 ```python
 NIBR_CATEGORY = {
     # Person
-    "09A": "Homicide", "09B": "Homicide", "09C": "Other Group A",   # 09C justifiable: not a crime
+    "09A": "Homicide", "09B": "Homicide", "09C": "Other",   # 09C justifiable: not a crime
     "100": "Kidnapping",
-    "11A": "Sex Offense", "11B": "Sex Offense", "11C": "Sex Offense", "11D": "Sex Offense",
-    "36A": "Sex Offense", "36B": "Sex Offense",
+    "11A": "Sexual Offense", "11B": "Sexual Offense", "11C": "Sexual Offense", "11D": "Sexual Offense",
+    "36A": "Sexual Offense", "36B": "Sexual Offense",
     "64A": "Human Trafficking", "64B": "Human Trafficking",
-    "13A": "Aggravated Assault",
-    "13B": "Simple Assault/Intimidation", "13C": "Simple Assault/Intimidation",
+    "13A": "Serious Assault",
+    "13B": "Minor Assault", "13C": "Minor Assault",
     # Property
     "120": "Robbery",
     "220": "Burglary",
-    **{f"23{c}": "Larceny/Theft" for c in "ABCDEFGH"},
-    "240": "Motor Vehicle Theft",
-    "250": "Fraud/Identity", "270": "Fraud/Identity",
-    **{f"26{c}": "Fraud/Identity" for c in "ABCDEFGH"},
-    "200": "Vandalism/Arson", "290": "Vandalism/Arson",
-    "210": "Other Group A", "280": "Other Group A", "510": "Other Group A",
+    **{f"23{c}": "Theft" for c in "ABCDEFGH"},
+    "240": "Car Theft",
+    "250": "Fraud", "270": "Fraud",
+    **{f"26{c}": "Fraud" for c in "ABCDEFGH"},
+    "200": "Vandalism", "290": "Vandalism",
+    "210": "Other", "280": "Other", "510": "Other",
     # Society
     "35A": "Drugs", "35B": "Drugs",
-    "520": "Weapon Law",
-    "370": "Other Group A", "720": "Other Group A",
-    **{f"39{c}": "Other Group A" for c in "ABCD"},
-    **{f"40{c}": "Other Group A" for c in "ABC"},
+    "520": "Weapons",
+    "370": "Other", "720": "Other",
+    **{f"39{c}": "Other" for c in "ABCD"},
+    **{f"40{c}": "Other" for c in "ABC"},
     # Group B
-    **{f"90{c}": "Group B" for c in "ABCDEFGHIJZ"},
+    **{f"90{c}": "Violations" for c in "ABCDEFGHIJZ"},
 }
 # Unmapped code -> "Unmapped" (log it; it must not be silently absorbed)
 
 FBI_VIOLENT_CODES = {"09A", "09B", "11A", "11B", "11C", "11D", "120", "13A"}
 
 CATEGORY_RANK = [            # 1 = most serious; used to pick the primary offense
-    "Homicide", "Sex Offense", "Human Trafficking", "Kidnapping", "Robbery",
-    "Aggravated Assault", "Burglary", "Motor Vehicle Theft", "Vandalism/Arson",
-    "Larceny/Theft", "Fraud/Identity", "Simple Assault/Intimidation",
-    "Weapon Law", "Drugs", "Other Group A", "Group B", "Unmapped",
+    "Homicide", "Sexual Offense", "Human Trafficking", "Kidnapping", "Robbery",
+    "Serious Assault", "Burglary", "Car Theft", "Vandalism",
+    "Theft", "Fraud", "Minor Assault",
+    "Weapons", "Drugs", "Other", "Violations", "Unmapped",
 ]
 # rank = CATEGORY_RANK.index(category) + 1
 ```

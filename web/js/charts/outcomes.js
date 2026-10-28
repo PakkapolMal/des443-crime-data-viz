@@ -506,7 +506,7 @@ export async function lag(el, { data, lazy }) {
     const q3X = xScale(Number(d.q3 || 0));
     const p90X = xScale(Number(d.p90 || d.q3 || 0));
 
-    // Only the long-lag outlier (median > 7 days, Fraud/Identity) is red.
+    // Only the long-lag outlier (median > 7 days, Fraud) is red.
     let barColor = "var(--bone)";
     if (medVal >= 1 && medVal <= 7) barColor = "var(--bone-60)";
     else if (medVal > 7) barColor = "var(--signal)";

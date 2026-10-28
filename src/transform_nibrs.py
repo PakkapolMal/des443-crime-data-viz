@@ -37,34 +37,38 @@ VIC_CODE_RE = r" - ([0-9]{2}[0-9A-Z])(?=\s*(?:,|$))"  # trailing code of each li
 SEVERITY = {"F": "Felony", "M": "Misdemeanor"}  # anything else -> Other
 
 NIBR_CATEGORY = {
-    "09A": "Homicide", "09B": "Homicide", "09C": "Other Group A",
+    "09A": "Homicide", "09B": "Homicide", "09C": "Other",
     "100": "Kidnapping",
-    "11A": "Sex Offense", "11B": "Sex Offense", "11C": "Sex Offense", "11D": "Sex Offense",
-    "36A": "Sex Offense", "36B": "Sex Offense",
+    "11A": "Sexual Offense", "11B": "Sexual Offense", "11C": "Sexual Offense", "11D": "Sexual Offense",
+    "36A": "Sexual Offense", "36B": "Sexual Offense",
     "64A": "Human Trafficking", "64B": "Human Trafficking",
-    "13A": "Aggravated Assault",
-    "13B": "Simple Assault/Intimidation", "13C": "Simple Assault/Intimidation",
+    "13A": "Serious Assault",
+    "13B": "Minor Assault", "13C": "Minor Assault",
     "120": "Robbery",
     "220": "Burglary",
-    **{f"23{c}": "Larceny/Theft" for c in "ABCDEFGH"},
-    "240": "Motor Vehicle Theft",
-    "250": "Fraud/Identity", "270": "Fraud/Identity",
-    **{f"26{c}": "Fraud/Identity" for c in "ABCDEFGH"},
-    "200": "Vandalism/Arson", "290": "Vandalism/Arson",
-    "210": "Other Group A", "280": "Other Group A", "510": "Other Group A",
+    **{f"23{c}": "Theft" for c in "ABCDEFGH"},
+    "240": "Car Theft",
+    "250": "Fraud", "270": "Fraud",
+    **{f"26{c}": "Fraud" for c in "ABCDEFGH"},
+    "200": "Vandalism", "290": "Vandalism",
+    "210": "Other", "280": "Other", "510": "Other",
     "35A": "Drugs", "35B": "Drugs",
-    "520": "Weapon Law",
-    "370": "Other Group A", "720": "Other Group A",
-    **{f"39{c}": "Other Group A" for c in "ABCD"},
-    **{f"40{c}": "Other Group A" for c in "ABC"},
-    **{f"90{c}": "Group B" for c in "ABCDEFGHIJZ"},
+    "520": "Weapons",
+    "370": "Other", "720": "Other",
+    **{f"39{c}": "Other" for c in "ABCD"},
+    **{f"40{c}": "Other" for c in "ABC"},
+    **{f"90{c}": "Violations" for c in "ABCDEFGHIJZ"},
 }
+# Statute 10851(A) VC (take vehicle without owner's consent) is car theft, but LAPD codes it
+# 240/26A/270/280/90Z/23G. Override the category by statute; nibr_code keeps LAPD's code.
+CAR_THEFT_STATUTE = "10851(A) - VC"
+CAR_THEFT_VIC_RE = r"(10851\(A\) - VC - [^,]*?) - [0-9]{2}[0-9A-Z](?=\s*(?:,|$))"
 FBI_VIOLENT_CODES = {"09A", "09B", "11A", "11B", "11C", "11D", "120", "13A"}
 CATEGORY_RANK = [
-    "Homicide", "Sex Offense", "Human Trafficking", "Kidnapping", "Robbery",
-    "Aggravated Assault", "Burglary", "Motor Vehicle Theft", "Vandalism/Arson",
-    "Larceny/Theft", "Fraud/Identity", "Simple Assault/Intimidation",
-    "Weapon Law", "Drugs", "Other Group A", "Group B", "Unmapped",
+    "Homicide", "Sexual Offense", "Human Trafficking", "Kidnapping", "Robbery",
+    "Serious Assault", "Burglary", "Car Theft", "Vandalism",
+    "Theft", "Fraud", "Minor Assault",
+    "Weapons", "Drugs", "Other", "Violations", "Unmapped",
 ]
 RANK = {c: i + 1 for i, c in enumerate(CATEGORY_RANK)}
 
@@ -241,6 +245,10 @@ def offense_grain(off):
     off["label"] = p["label"].str.strip().fillna(to_label(off["NIBR Description"], "Unknown").str.strip())
     off["severity"] = p["severity"].map(SEVERITY).fillna("Other")
     off["category"] = off["nibr_code"].map(NIBR_CATEGORY).fillna("Unmapped")
+    car = to_label(off["NIBR Description"], "").str.startswith(CAR_THEFT_STATUTE)
+    log.info("statute %s -> Car Theft: %d rows; from %s", CAR_THEFT_STATUTE, car.sum(),
+             off.loc[car, "category"].value_counts().to_dict())
+    off.loc[car, "category"] = "Car Theft"
     check_unmapped(off["category"], off["NIBR Description"], "NIBR code")
     off["rank"] = off["category"].map(RANK).astype("int8")
     off["is_violent_fbi"] = off["nibr_code"].isin(FBI_VIOLENT_CODES)
@@ -299,7 +307,7 @@ def incident_grain(off, snapshot):
 
 def victim_grain(vic):
     def worst_category(u):
-        codes = u.str.extractall(VIC_CODE_RE)[0]
+        codes = u.str.replace(CAR_THEFT_VIC_RE, r"\1 - 240", regex=True).str.extractall(VIC_CODE_RE)[0]
         best = codes.map(NIBR_CATEGORY).fillna("Unmapped").map(RANK).groupby(level=0).min()
         return best.reindex(u.index).fillna(RANK["Unmapped"]).astype(int).map(dict(enumerate(CATEGORY_RANK, 1)))
 
@@ -378,7 +386,7 @@ def aggregate(off, inc, vic, snapshot, invalid_rows, nac_incidents):
                              "dv_share", "gang_share", "transit_share", "firearm_share", "lat", "lon"]])
     out["area_by_cat"] = _count(inc, ["area", "category"])
 
-    lc = off.groupby(["category", "label"]).size().sort_values(ascending=False)
+    lc = off.groupby(["category", "label"]).size().sort_index().sort_values(ascending=False, kind="stable")  # ties -> label A-Z
     top8 = lc.groupby(level=0).head(8).index
     keep = pd.MultiIndex.from_frame(off[["category", "label"]]).isin(top8)
     out["offense_hierarchy"] = _count(off.assign(label=off["label"].where(keep, "Other")),
