@@ -395,14 +395,16 @@ export async function methodology(el) {
       .style("border", "var(--rule)")
       .style("padding", "var(--s-2) var(--s-3)")
       .style("display", "grid")
-      .style("grid-template-columns", "50px 1fr")
+      .style("grid-template-columns", "auto 1fr")
       .style("align-items", "center")
-      .style("gap", "var(--s-2)");
+      .style("gap", "var(--s-3)");
 
     card.append("div")
       .style("font-size", "var(--fs-h2)")
       .style("font-weight", "700")
       .style("font-family", "var(--font-mono)")
+      .style("line-height", "1")
+      .style("white-space", "nowrap")
       .style("color", "var(--bone)")
       .text(s.num);
 
