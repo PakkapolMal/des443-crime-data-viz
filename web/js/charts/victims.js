@@ -49,8 +49,11 @@ export async function pyramid(el, { data, lazy }) {
     .style("font-family", "var(--font-mono)")
     .style("font-size", "var(--fs-small)");
 
-  // Bins come from the data (pipeline AGE_LABELS); labels sort correctly by their leading number.
-  const ageBins = [...new Set(rawData.map(d => String(d.age_group)))].sort((a, b) => parseInt(a) - parseInt(b));
+  // Bins come from the data (pipeline AGE_LABELS); labels sort by their leading number. "Unknown" goes first, which
+  // the bottom-up y scale draws as the bottom row, in grey (not a real age).
+  const ageOrder = a => parseInt(a) || -Infinity;
+  const ageFill = (age, hue) => age === "Unknown" ? "var(--bone-35)" : hue;
+  const ageBins = [...new Set(rawData.map(d => String(d.age_group)))].sort((a, b) => ageOrder(a) - ageOrder(b));
 
   const maleData = new Map();
   const femaleData = new Map();
@@ -161,7 +164,7 @@ export async function pyramid(el, { data, lazy }) {
     .attr("x", width / 2)
     .attr("y", d => yScale(d) + yScale.bandwidth() / 2 + 4)
     .attr("text-anchor", "middle")
-    .style("fill", "var(--bone)")
+    .style("fill", d => d === "Unknown" ? "var(--bone-60)" : "var(--bone)")
     .style("font-size", "var(--fs-small)")
     .style("font-family", "var(--font-mono)")
     .style("font-weight", "600")
@@ -177,7 +180,7 @@ export async function pyramid(el, { data, lazy }) {
     .attr("x", d => xLeftScale(maleData.get(d) || 0))
     .attr("height", yScale.bandwidth())
     .attr("width", d => Math.max(0, (margin.left + halfWidth) - xLeftScale(maleData.get(d) || 0)))
-    .attr("fill", "var(--sex-m)")
+    .attr("fill", d => ageFill(d, "var(--sex-m)"))
     .style("cursor", "pointer")
     .on("mouseover", function (event, d) {
       d3.select(this).attr("stroke", "var(--bone)").attr("stroke-width", 2);
@@ -213,7 +216,7 @@ export async function pyramid(el, { data, lazy }) {
     .attr("x", width - margin.right - halfWidth)
     .attr("height", yScale.bandwidth())
     .attr("width", d => Math.max(0, xRightScale(femaleData.get(d) || 0) - (width - margin.right - halfWidth)))
-    .attr("fill", "var(--sex-f)")
+    .attr("fill", d => ageFill(d, "var(--sex-f)"))
     .style("cursor", "pointer")
     .on("mouseover", function (event, d) {
       d3.select(this).attr("stroke", "var(--bone)").attr("stroke-width", 2);

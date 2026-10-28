@@ -135,7 +135,7 @@ DESCENT_NAME = {
     "other": "Other", "unknown": "Unknown",
 }
 # Source has no victims under 18 (min Vict Age = 18); 18-24 is the standard first adult bracket.
-AGE_BINS = [17, 24, 29, 34, 39, 44, 49, 54, 59, 64, 69, 74, 79, 84, 99]
+AGE_BINS = [17, 24, 29, 34, 39, 44, 49, 54, 59, 64, 69, 74, 79, 84, float("inf")]
 AGE_LABELS = ["18-24", "25-29", "30-34", "35-39", "40-44", "45-49", "50-54", "55-59", "60-64", "65-69", "70-74", "75-79", "80-84", "85+"]
 
 
@@ -327,7 +327,8 @@ def victim_grain(vic):
     age = pd.to_numeric(vic["Vict Age"], errors="coerce")
     if (minors := int(age.between(1, 17).sum())):
         log.warning("victim ages 1-17 found (%d rows): source now has minors, add a 0-17 bin", minors)
-    vic["age_group"] = pd.cut(age.where(age.between(1, 99)), bins=AGE_BINS, labels=AGE_LABELS)
+    vic["age_group"] = (pd.cut(age.where(age >= 1), bins=AGE_BINS, labels=AGE_LABELS)
+                        .cat.add_categories("Unknown").fillna("Unknown"))  # blank age
     vic["is_individual"] = vic["victim_type"].isin({"Person", "Law Enforcement Officer"})
     vic["outcome"] = to_label(vic["Status Desc"], "Unknown").map(STATUS_OUTCOME).fillna("Unknown")
     return vic

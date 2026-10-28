@@ -98,11 +98,10 @@ def main():
     total = lambda f, key="count": sum(r[key] for r in d[f])  # noqa: E731
     cohort = int(inc["clearance_cohort"].sum())
     geo = inc[inc["LAT"].notna() & inc["LON"].notna() & (inc["LAT"] != 0) & (inc["LON"] != 0)]
-    known_age = int((vic["is_individual"] & vic["age_group"].notna()).sum())
     kpi = d["kpi.json"]
     sums = [
         ("monthly_by_cat == incidents in window", total("monthly_by_cat.json"), len(inc)),
-        ("victim_age_sex == individuals with known age", total("victim_age_sex.json"), known_age),
+        ("victim_age_sex == individual victims", total("victim_age_sex.json"), int(vic["is_individual"].sum())),
         ("area_by_cat == incidents", total("area_by_cat.json"), len(inc)),
         ("weapon_class == incidents", total("weapon_class.json"), len(inc)),
         ("offense_count_dist == incidents", total("offense_count_dist.json", "incidents"), len(inc)),

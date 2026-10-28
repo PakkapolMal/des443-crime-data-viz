@@ -99,9 +99,9 @@ export async function hierarchy(el, { data, lazy }) {
   const getNodeName = (d) => String(d?.name || "Offense");
 
   // offense_hierarchy.json is flat {category, label, count}. Build root -> {violent, other} -> category
-  // -> offense. Violent crime is one contiguous, self-labelled red block (no legend). Other crime keeps
-  // its 7 largest categories (DESIGN.md: few series); each category shows its top 4 offenses + a roll-up.
-  const TOP_OTHER = 7, TOP_LEAVES = 4;
+  // -> offense. Violent crime is one contiguous, self-labelled red block on the left (no legend).
+  // Other crime keeps its 9 largest categories; each category shows its top 4 offenses + a roll-up.
+  const TOP_OTHER = 9, TOP_LEAVES = 4;
   const rows = Array.isArray(rawHierarchy) ? rawHierarchy : [];
   const byCat = d3.rollups(rows, v => d3.rollups(v, w => d3.sum(w, r => +r.count || 0), r => r.label), r => r.category)
     .map(([name, leaves]) => ({ name, leaves: leaves.sort((x, y) => y[1] - x[1]), total: d3.sum(leaves, l => l[1]) }))
@@ -109,7 +109,9 @@ export async function hierarchy(el, { data, lazy }) {
   const toLeaves = (leaves) => {
     const kept = leaves.slice(0, TOP_LEAVES).map(([name, value]) => ({ name, value }));
     const rest = d3.sum(leaves.slice(TOP_LEAVES), l => l[1]);
-    if (rest > 0) kept.push({ name: `${leaves.length - TOP_LEAVES} other offenses`, value: rest, rollup: true });
+    if (rest > 0) kept.push({ name: `${leaves.length - TOP_LEAVES} other offenses`, value: rest, rollup: true,
+      // The pipeline's own "Other" label is everything outside the category's top 8 offenses.
+      members: leaves.slice(TOP_LEAVES).map(([name, total]) => ({ name: name === "Other" ? "All smaller offenses" : name, total })) });
     return kept;
   };
   const asCat = c => ({ name: c.name, children: toLeaves(c.leaves) });
@@ -118,7 +120,7 @@ export async function hierarchy(el, { data, lazy }) {
   const otherChildren = otherCats.slice(0, TOP_OTHER).map(asCat);
   const tail = otherCats.slice(TOP_OTHER);
   if (tail.length) {
-    otherChildren.push({ name: `${tail.length} other categories`, children: [{ name: "All offenses", value: d3.sum(tail, c => c.total), rollup: true }] });
+    otherChildren.push({ name: `${tail.length} other categories`, members: tail, children: [{ name: "All offenses", value: d3.sum(tail, c => c.total), rollup: true }] });
   }
 
   const root = d3.hierarchy({ name: "All Crimes", children: [
@@ -126,7 +128,7 @@ export async function hierarchy(el, { data, lazy }) {
     { name: "Other crime", children: otherChildren },
   ] })
     .sum(d => d.value || 0)
-    .sort((a, b) => b.value - a.value);
+    .sort((a, b) => a.depth === 1 ? b.data.violent - a.data.violent : b.value - a.value);
 
   const totalValue = root.value || 1;
   updateBanner(null);
@@ -137,9 +139,11 @@ export async function hierarchy(el, { data, lazy }) {
     .paddingOuter(3)
     .paddingInner(2)
     .paddingTop(d => (d.depth === 1 || d.depth === 2) ? HEADER : 3)
-    .round(true)(root);
+    .round(true)
+    // Top level slices left-to-right in sort order, so the violent block always sits on the left.
+    .tile((node, x0, y0, x1, y1) => (node.depth === 0 ? d3.treemapDice : d3.treemapSquarify)(node, x0, y0, x1, y1))(root);
 
-  // Red = violent crime (same categories as the KPI violent share); every other tile is neutral.
+  // Red = violent crime (VIOLENT_CATEGORIES); every other tile is neutral.
   const catOf = d => d.ancestors().find(a => a.depth === 2);
   const isViolent = d => d.ancestors().some(a => a.data.violent);
   const leafFill = d => isViolent(d) ? "var(--signal-fill)" : (d.data.rollup ? "var(--surface)" : "var(--neutral-fill)");
@@ -215,9 +219,11 @@ export async function hierarchy(el, { data, lazy }) {
       d3.select(this).attr("stroke", "var(--bone)");
       updateBanner(d);
       const share = ((d.value / totalValue) * 100).toFixed(1);
+      const members = d.data.members || catOf(d).data.members;
       tooltip.html(`
         <strong style="color:var(--bone);">${getNodeName(d.data)}</strong><br/>
         Category: <em>${getNodeName(catOf(d).data)}</em><br/>
+        ${members ? members.map(c => `${c.name}: ${d3.format(",")(c.total)}`).join("<br/>") + "<br/>" : ""}
         Volume: <strong>${d3.format(",")(d.value)}</strong><br/>
         Share of total: <strong>${share}%</strong>
       `).style("opacity", 1);

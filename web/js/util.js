@@ -12,10 +12,9 @@ export const CATEGORIES = [
   "Weapons", "Drugs", "Other", "Violations", "Unmapped",
 ];
 
-// FBI violent crime, as categories. kpi.violent_share_fbi uses FBI_VIOLENT_CODES (09A/B, 11A-D, 120, 13A)
-// on the primary offense; every one of those codes maps to these four categories.
-// ponytail: Sexual Offense also holds 36A/36B (incest, statutory), which the KPI excludes; files without
-// nibr_code can't split it. Add nibr_code to the export if the gap matters.
+// FBI violent crime, as categories (the treemap's red block). kpi.violent_share_fbi uses FBI_VIOLENT_CODES
+// (09A/B, 11A-D, 120, 13A); every one of those codes maps to these four categories.
+// ponytail: Sexual Offense also holds 36A/36B (incest, statutory), which the KPI excludes.
 export const VIOLENT_CATEGORIES = new Set(["Homicide", "Sexual Offense", "Robbery", "Serious Assault"]);
 
 // Colours come from tokens.css so CSS stays the single source.

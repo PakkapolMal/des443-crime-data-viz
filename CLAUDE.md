@@ -78,7 +78,7 @@ Reasons:
 - Unmapped counts per mapping.
 - Sep 2026 completeness check (see above).
 - Every file in the output contract exists, uses the specified keys, and is under 2 MB (`geo_sample.json` under 3 MB).
-- Sum checks: `monthly_by_cat` totals equal incidents in the window; `victim_age_sex` totals equal individual victims with a known age.
+- Sum checks: `monthly_by_cat` totals equal incidents in the window; `victim_age_sex` totals equal individual victims (blank ages go to `age_group` "Unknown").
 
 ## Working style
 Same as the legacy pipeline: propose the plan before large edits, and when done, summarize the files, sizes, drops per filter and any data surprises.
