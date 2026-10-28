@@ -239,7 +239,7 @@ svg text { font-family: var(--font-mono); font-size: var(--fs-label); fill: var(
 }
 
 /* --- Screen 1 & 2 Layout Rules --- */
-.title-screen { display: flex; flex-direction: column; justify-content: flex-end; gap: var(--s-4); isolation: isolate; }
+.title-screen { display: flex; flex-direction: column; justify-content: center; gap: var(--s-4); isolation: isolate; }
 /* Ambient rain canvas (web/js/rain.js), faded out behind the title. DESIGN.md "Title rain exception". */
 .title-screen .rain {
   position: absolute; inset: 0; width: 100%; height: 100%; z-index: -1;
@@ -253,7 +253,8 @@ svg text { font-family: var(--font-mono); font-size: var(--fs-label); fill: var(
   text-shadow: 0.05em 0 var(--signal), -0.035em 0 var(--bone-35);
 }
 /* --- end glitch --- */
-.title-screen .scroll-cue { margin-top: var(--s-5); }
+/* Title + lede sit at the vertical centre; the cue stays pinned to the bottom padding edge. */
+.title-screen .scroll-cue { position: absolute; left: var(--s-6); bottom: var(--s-5); margin: 0; }
 
 .kpi-screen { 
   display: flex; 
