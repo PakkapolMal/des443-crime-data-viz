@@ -151,7 +151,7 @@ export async function scatter(el, { data, lazy }) {
     svg.append("g")
       .attr("class", "axis")
       .attr("transform", `translate(${margin.left}, 0)`)
-      .call(d3.axisLeft(yScale).ticks(6).tickFormat(d => `${d.toFixed(0)}%`));
+      .call(d3.axisLeft(yScale).ticks(6).tickFormat(d => `${yScale.tickFormat(6)(d)}%`));
 
     svg.append("text")
       .attr("transform", "rotate(-90)")
@@ -181,7 +181,7 @@ export async function scatter(el, { data, lazy }) {
           <strong style="color:var(--bone);">${d.area} Division</strong><br/>
           Total Volume: <strong>${d3.format(",")(d.totalVolume)}</strong><br/>
           ${selectedCategory}: <strong>${d3.format(",")(d.catCount)}</strong><br/>
-          Category Share: <strong style="color:var(--signal);">${d.catShare.toFixed(1)}%</strong>
+          Category Share: <strong style="color:var(--signal);">${d3.format(".2~f")(d.catShare)}%</strong>
         `).style("opacity", 1);
       })
       .on("mousemove", event => {
